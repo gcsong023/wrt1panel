@@ -572,8 +572,8 @@ func mergeChunks(fileName string, fileDir string, dstDir string, chunkCount int)
 // @Success 200
 // @Security ApiKeyAuth
 // @Router /files/chunkupload [post]
+
 func (b *BaseApi) UploadChunkFiles(c *gin.Context) {
-	var err error
 	fileForm, err := c.FormFile("chunk")
 	if err != nil {
 		helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, err)
@@ -584,16 +584,32 @@ func (b *BaseApi) UploadChunkFiles(c *gin.Context) {
 		helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, err)
 		return
 	}
+	defer uploadFile.Close()
+
 	chunkIndex, err := strconv.Atoi(c.PostForm("chunkIndex"))
-	if err != nil {
+	if err != nil || chunkIndex < 0 {
 		helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, err)
 		return
 	}
+
 	chunkCount, err := strconv.Atoi(c.PostForm("chunkCount"))
-	if err != nil {
+	if err != nil || chunkCount <= 0 {
 		helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, err)
 		return
 	}
+
+	// 安全性优化：清洗和规范化文件名
+	filename := strings.TrimSpace(c.PostForm("filename"))
+	if filename == "" {
+		helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, nil)
+		return
+	}
+	safeFilename := filepath.Clean(filename)
+	if strings.Contains(safeFilename, "..") {
+		helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, nil)
+		return
+	}
+
 	fileOp := files.NewFileOp()
 	tmpDir := path.Join(global.CONF.System.TmpDir, "upload")
 	if !fileOp.Stat(tmpDir) {
@@ -602,21 +618,22 @@ func (b *BaseApi) UploadChunkFiles(c *gin.Context) {
 			return
 		}
 	}
-	filename := c.PostForm("filename")
-	fileDir := filepath.Join(tmpDir, filename)
+
+	fileDir := filepath.Join(tmpDir, safeFilename)
 	if chunkIndex == 0 {
 		if fileOp.Stat(fileDir) {
 			_ = fileOp.DeleteDir(fileDir)
 		}
-		_ = os.MkdirAll(fileDir, 0755)
-	}
-	filePath := filepath.Join(fileDir, filename)
-
-	defer func() {
-		if err != nil {
-			_ = os.Remove(fileDir)
+		// 优化：确保创建目录的错误被处理
+		if err := os.MkdirAll(fileDir, 0755); err != nil {
+			helper.ErrorWithDetail(c, constant.CodeErrBadRequest, constant.ErrTypeInvalidParams, err)
+			return
 		}
-	}()
+	}
+
+	filePath := filepath.Join(fileDir, safeFilename)
+
+	// 优化：错误处理和资源清理
 	var (
 		emptyFile *os.File
 		chunkData []byte
@@ -629,29 +646,47 @@ func (b *BaseApi) UploadChunkFiles(c *gin.Context) {
 	}
 	defer emptyFile.Close()
 
-	chunkData, err = io.ReadAll(uploadFile)
+	chunkData, err = readChunkDataInBlocks(uploadFile) // 优化文件读取
 	if err != nil {
-		helper.ErrorWithDetail(c, constant.CodeErrInternalServer, constant.ErrTypeInternalServer, buserr.WithMap(constant.ErrFileUpload, map[string]interface{}{"name": filename, "detail": err.Error()}, err))
+		helper.ErrorWithDetail(c, constant.CodeErrInternalServer, constant.ErrTypeInternalServer, err)
 		return
 	}
 
-	chunkPath := filepath.Join(fileDir, fmt.Sprintf("%s.%d", filename, chunkIndex))
-	err = os.WriteFile(chunkPath, chunkData, 0644)
-	if err != nil {
-		helper.ErrorWithDetail(c, constant.CodeErrInternalServer, constant.ErrTypeInternalServer, buserr.WithMap(constant.ErrFileUpload, map[string]interface{}{"name": filename, "detail": err.Error()}, err))
+	chunkPath := filepath.Join(fileDir, fmt.Sprintf("%s.%d", safeFilename, chunkIndex))
+	if err := os.WriteFile(chunkPath, chunkData, 0644); err != nil {
+		helper.ErrorWithDetail(c, constant.CodeErrInternalServer, constant.ErrTypeInternalServer, err)
 		return
 	}
 
 	if chunkIndex+1 == chunkCount {
-		err = mergeChunks(filename, fileDir, c.PostForm("path"), chunkCount)
-		if err != nil {
-			helper.ErrorWithDetail(c, constant.CodeErrInternalServer, constant.ErrTypeInternalServer, buserr.WithMap(constant.ErrFileUpload, map[string]interface{}{"name": filename, "detail": err.Error()}, err))
+		if err := mergeChunks(safeFilename, fileDir, c.PostForm("path"), chunkCount); err != nil {
+			helper.ErrorWithDetail(c, constant.CodeErrInternalServer, constant.ErrTypeInternalServer, err)
 			return
 		}
 		helper.SuccessWithData(c, true)
-	} else {
 		return
 	}
+}
+
+// 优化文件读取，使用分块读写而不是io.ReadAll
+func readChunkDataInBlocks(r io.Reader) ([]byte, error) {
+	const chunkSize = 1024 * 1024 // 例如，每次读取1MB
+	chunkData := make([]byte, chunkSize)
+	var allData []byte
+	for {
+		n, err := r.Read(chunkData)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if n == 0 {
+			break
+		}
+		allData = append(allData, chunkData[:n]...)
+		if err == io.EOF {
+			break
+		}
+	}
+	return allData, nil
 }
 
 var wsUpgrade = websocket.Upgrader{
