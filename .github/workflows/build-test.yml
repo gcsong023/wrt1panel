@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20.2'
+          node-version: '20.11'
       - name: Build Web
         id: build_frontend
         run: |
@@ -29,6 +29,6 @@ jobs:
         with:
           go-version: '1.22.x'
       - name: Build Server
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           args: release --snapshot --clean
