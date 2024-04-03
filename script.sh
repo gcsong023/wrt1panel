@@ -6,7 +6,7 @@ command -v wget >/dev/null || {
 }
 
 if [ ! -f "1pctl" ]; then 
-  wget https://github.com/1Panel-dev/installer/raw/main/1pctl
+  wget https://github.com/gcsong023/wrt_installer/raw/main/1pctl
 fi
 
 if [ ! -f "1panel.service" ]; then 
@@ -14,7 +14,7 @@ if [ ! -f "1panel.service" ]; then
 fi
 
 if [ ! -f "install.sh" ]; then 
-  wget https://github.com/1Panel-dev/installer/raw/main/install.sh
+  wget https://github.com/gcsong023/wrt_installer/raw/main/install.sh
 fi
 
 chmod 755 1pctl install.sh
