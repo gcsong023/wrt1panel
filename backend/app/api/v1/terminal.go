@@ -71,7 +71,6 @@ func (b *BaseApi) WsSsh(c *gin.Context) {
 		return
 	}
 }
-
 func (b *BaseApi) RedisWsSsh(c *gin.Context) {
 	wsConn, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -121,7 +120,6 @@ func (b *BaseApi) RedisWsSsh(c *gin.Context) {
 		return
 	}
 }
-
 func (b *BaseApi) ContainerWsSsh(c *gin.Context) {
 	wsConn, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
