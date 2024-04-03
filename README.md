@@ -12,6 +12,7 @@
 ------------------------------
 
 1Panel 是新一代的 Linux 服务器运维管理面板。
+本仓库中的代码基于1panel-V1.10.1-lts 修改，仅限于在openwrt环境中运行，CENTOS、Ubuntu、Debian、Raspbian等系统请到1panel官方仓库查看。
 
 - **高效管理**：用户可以通过 Web 图形界面轻松管理 Linux 服务器，实现主机监控、文件管理、数据库管理、容器管理等功能；
 - **快速建站**：深度集成开源建站软件 WordPress 和 [Halo](https://github.com/halo-dev/halo/)，域名绑定、SSL 证书配置等操作一键搞定；
@@ -33,10 +34,15 @@
 
 **一键安装**
 
-执行如下命令一键安装 1Panel:
+在 Linux 终端 执行如下命令一键安装官方1Panel:
 
 ```sh
 curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sudo bash quick_start.sh
+```
+在 openwrt 终端 执行如下命令在openwrt中一键安装1Panel:
+
+```sh
+curl -sSL https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/quick_start.sh -o quick_start.sh && bash quick_start.sh
 ```
 
 **学习资料**
