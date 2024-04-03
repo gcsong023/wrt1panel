@@ -15,7 +15,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -w -s
+      - -w -s -X 'main.Version=stable'
     env:
       - CGO_ENABLED=0
     goos:
