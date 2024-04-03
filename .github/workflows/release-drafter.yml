@@ -1,4 +1,7 @@
 on:
+  workflow_dispatch:
+    # schedule:
+      # - cron: 0 9 */7 * *
   push:
     # Sequence of patterns matched against refs/tags
     tags:
