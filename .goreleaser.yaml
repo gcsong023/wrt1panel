@@ -15,7 +15,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -w -s -X 'main.Version=stable'
+      - -w -s "-X 'main.version={{ .Version }}'" "-X 'main.mode=stable'"
     env:
       - CGO_ENABLED=0
     goos:
@@ -45,7 +45,7 @@ checksum:
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 release:
-  draft: true
+  draft: false
   mode: append
   extra_files:
     - glob: dist/*.tar.gz
