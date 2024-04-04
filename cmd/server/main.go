@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/1Panel-dev/1Panel/cmd/server/cmd"
 	_ "github.com/1Panel-dev/1Panel/cmd/server/docs"
-	_ "net/http/pprof"
 )
 
 // @title 1Panel
@@ -18,8 +18,11 @@ import (
 // @host localhost
 // @BasePath /api/v1
 
+var Mode string
+
 //go:generate swag init -o ./docs -g main.go -d ../../backend -g ../cmd/server/main.go
 func main() {
+	fmt.Println("1Panel", Mode, "mode")
 	if err := cmd.RootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
