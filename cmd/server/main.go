@@ -18,11 +18,11 @@ import (
 // @host localhost
 // @BasePath /api/v1
 
-var Mode string
+var mode string
 
 //go:generate swag init -o ./docs -g main.go -d ../../backend -g ../cmd/server/main.go
 func main() {
-	fmt.Println("1Panel", Mode, "mode")
+	fmt.Println(mode, "mode")
 	if err := cmd.RootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
