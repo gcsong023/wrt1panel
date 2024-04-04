@@ -15,7 +15,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -w -s "-X 'main.version={{ .Version }}'" "-X 'main.mode=stable'"
+      - -w -s "-X 'main.mode=stable'"
     env:
       - CGO_ENABLED=0
     goos:
