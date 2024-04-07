@@ -10,7 +10,7 @@ if [ ! -f "1pctl" ]; then
 fi
 
 if [ ! -f "1panel.service" ]; then 
-  wget https://github.com/1Panel-dev/installer/raw/main/1panel.service
+  wget  https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/1panel.service
 fi
 
 if [ ! -f "install.sh" ]; then 
