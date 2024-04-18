@@ -34,16 +34,20 @@
 
 **一键安装**
 
-在 Linux 终端 执行如下命令一键安装官方1Panel:
+在 Linux 终端 执行如下官方命令一键安装原版1Panel（请注意，该方式在openwrt中不能正常安装）:
 
 ```sh
 curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sudo bash quick_start.sh
 ```
-在 openwrt 终端 执行如下命令在openwrt中一键安装1Panel:
+在 openwrt 终端 执行如下命令在openwrt中一键安装官方1Panel:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/quick_start.sh -o quick_start.sh && bash quick_start.sh
 ```
+本仓库ACTIONS编译的二进制文件及压缩包，请到[releases](https://github.com/gcsong023/wrt1panel/releases)查看、下载。
+
+### 安装过程中遇到问题
+一些常见的安装问题及解决办法，请到[wrt_installer](https://github.com/gcsong023/wrt_installer)查看。
 
 **学习资料**
 
