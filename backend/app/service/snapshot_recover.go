@@ -105,7 +105,29 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 		req.IsNew = true
 	}
 	if req.IsNew || snap.InterruptStep == "1PanelService" {
-		if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel.service"), "/etc/systemd/system"); err != nil {
+		serviceSrc := path.Join(snapFileDir, "1panel/1panel.service")
+		// 检查/etc/systemd/system目录是否存在
+		systemdPath := "/etc/systemd/system"
+		if _, err := os.Stat(systemdPath); err == nil {
+			// 目录存在，尝试恢复服务到此目录
+			if err := recoverPanel(serviceSrc, systemdPath); err != nil {
+				updateRecoverStatus(snap.ID, isRecover, "1PanelService", constant.StatusFailed, err.Error())
+				return
+			}
+			
+		} else if os.IsNotExist(err) {
+			// 如果/etc/systemd/system不存在，则检查/etc/init.d/
+			initdPath := "/etc/init.d"
+			if _, err := os.Stat(initdPath); err == nil {
+				// 目录存在，尝试将服务复制到此目录并重命名为"1panel"
+				destPath := path.Join(initdPath, "1panel")
+				if err := os.Rename(serviceSrc, destPath); err != nil {
+					updateRecoverStatus(snap.ID, isRecover, "1PanelService", constant.StatusFailed, err.Error())
+					return
+				}
+			
+		} else {
+			// 其他os.Stat错误处理
 			updateRecoverStatus(snap.ID, isRecover, "1PanelService", constant.StatusFailed, err.Error())
 			return
 		}
