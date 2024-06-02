@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -51,8 +52,25 @@ func snapPanel(snap snapHelper, targetDir string) {
 		status = err.Error()
 	}
 
-	if err := common.CopyFile("/etc/systemd/system/1panel.service", targetDir); err != nil {
-		status = err.Error()
+	// if err := common.CopyFile("/etc/systemd/system/1panel.service", targetDir); err != nil {
+	// 	status = err.Error()
+	// }
+	var serviceFiles = [2]string{"/etc/systemd/system/1panel.service", "/etc/init.d/1panel"}
+	for _, serviceFile := range serviceFiles {
+		var targetPath string
+		if serviceFile == "/etc/init.d/1panel" {
+			// 如果是/etc/init.d/1panel，将目标文件名设置为1panel.service
+			targetPath = filepath.Join(targetDir, "1panel.service")
+		} else {
+			// 其他情况，保持原文件名
+			targetPath = filepath.Join(targetDir, filepath.Base(serviceFile))
+		}
+		if err := common.CopyFile(serviceFile, targetDir); err == nil {
+			// 复制成功，跳出循环
+			break
+		} else {
+			status = err.Error()
+		}
 	}
 	snap.Status.Panel = status
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"panel": status})
@@ -244,7 +262,8 @@ func handleSnapTar(sourceDir, targetDir, name, exclusionRules string) error {
 		exMap[exclude] = struct{}{}
 	}
 
-	commands := fmt.Sprintf("tar --warning=no-file-changed --ignore-failed-read -zcf %s %s -C %s .", targetDir+"/"+name, exStr, sourceDir)
+	commands := fmt.Sprintf("tar -zcf %s %s -C %s .", targetDir+"/"+name, exStr, sourceDir)
+	// 移除openwrt中不支持的选项--warning=no-file-changed和--ignore-failed-read，提升兼容性；
 	global.LOG.Debug(commands)
 	stdout, err := cmd.ExecWithTimeOut(commands, 30*time.Minute)
 	if err != nil {
