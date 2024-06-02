@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -130,42 +131,61 @@ func (u *CronjobService) handleNtpSync() error {
 	return nil
 }
 
-func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
-	if _, err := os.Stat(targetDir); err != nil && os.IsNotExist(err) {
-		if err = os.MkdirAll(targetDir, os.ModePerm); err != nil {
+func buildExcludeRules(rules string) string {
+	var excludes []string
+	if rules != "" {
+		excludes = append(strings.Split(rules, ","), "*.sock")
+	} else {
+		excludes = append([]string{"*.sock"}, "")
+	}
+	builder := strings.Builder{}
+	for _, exclude := range excludes {
+		if exclude != "" {
+			builder.WriteString(" --exclude ")
+			builder.WriteString(exclude)
+		}
+	}
+	return builder.String()
+}
+
+func buildPath(dir string) string {
+	if filepath.IsAbs(dir) {
+		return dir
+	} else {
+		return fmt.Sprintf("-C %s .", dir)
+	}
+}
+func ensureDirectory(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil { // 更安全的权限设置
 			return err
 		}
 	}
-
-	excludes := strings.Split(exclusionRules, ",")
-	excludeRules := ""
-	excludes = append(excludes, "*.sock")
-	for _, exclude := range excludes {
-		if len(exclude) == 0 {
-			continue
-		}
-		excludeRules += " --exclude " + exclude
-	}
-	path := ""
-	if strings.Contains(sourceDir, "/") {
-		itemDir := strings.ReplaceAll(sourceDir[strings.LastIndex(sourceDir, "/"):], "/", "")
-		aheadDir := sourceDir[:strings.LastIndex(sourceDir, "/")]
-		if len(aheadDir) == 0 {
-			aheadDir = "/"
-		}
-		path += fmt.Sprintf("-C %s %s", aheadDir, itemDir)
-	} else {
-		path = sourceDir
+	return nil
+}
+func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
+	// 确保目标目录存在
+	if err := ensureDirectory(targetDir); err != nil {
+		return err
 	}
 
-	commands := fmt.Sprintf("tar --warning=no-file-changed --ignore-failed-read -zcf %s %s %s", targetDir+"/"+name, excludeRules, path)
+	// 构建排除规则字符串
+	excludeRules := buildExcludeRules(exclusionRules)
+
+	// 构建tar命令的路径参数
+	path := buildPath(sourceDir)
+
+	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
+	commands := fmt.Sprintf("tar -zcf %s %s %s", targetDir+"/"+name, excludeRules, path)
 	global.LOG.Debug(commands)
+	// 执行命令并处理结果
 	stdout, err := cmd.ExecWithTimeOut(commands, 24*time.Hour)
 	if err != nil {
 		if len(stdout) != 0 {
 			global.LOG.Errorf("do handle tar failed, stdout: %s, err: %v", stdout, err)
 			return fmt.Errorf("do handle tar failed, stdout: %s, err: %v", stdout, err)
 		}
+		return err
 	}
 	return nil
 }
@@ -177,7 +197,7 @@ func handleUnTar(sourceFile, targetDir string) error {
 		}
 	}
 
-	commands := fmt.Sprintf("tar zxvfC %s %s", sourceFile, targetDir)
+	commands := fmt.Sprintf("tar zxvf %s -C %s", sourceFile, targetDir)
 	global.LOG.Debug(commands)
 	stdout, err := cmd.ExecWithTimeOut(commands, 24*time.Hour)
 	if err != nil {
