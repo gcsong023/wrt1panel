@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -126,70 +127,61 @@ func (u *CronjobService) handleNtpSync() error {
 	return nil
 }
 
-func saveExcludesToFile(excludes []string, outputPath string) error {
-	// 拼接所有规则为一个字符串，每条规则占一行
-	rules := ""
+func buildExcludeRules(rules string) string {
+	var excludes []string
+	if rules != "" {
+		excludes = append(strings.Split(rules, ","), "*.sock")
+	} else {
+		excludes = append([]string{"*.sock"}, "")
+	}
+	builder := strings.Builder{}
 	for _, exclude := range excludes {
-		if len(exclude) > 0 {
-			rules += "--exclude " + exclude + "\n"
+		if exclude != "" {
+			builder.WriteString(" --exclude ")
+			builder.WriteString(exclude)
 		}
 	}
-
-	// 将规则字符串写入文件
-	if err := os.WriteFile(outputPath, []byte(rules), 0644); err != nil {
-		return fmt.Errorf("failed to write rules to file: %v", err)
-	}
-
-	return nil
+	return builder.String()
 }
 
-func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
-	if _, err := os.Stat(targetDir); err != nil && os.IsNotExist(err) {
-		if err = os.MkdirAll(targetDir, os.ModePerm); err != nil {
+func buildPath(dir string) string {
+	if filepath.IsAbs(dir) {
+		return dir
+	} else {
+		return fmt.Sprintf("-C %s .", dir)
+	}
+}
+func ensureDirectory(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
 	}
-
-	// excludes := strings.Split(exclusionRules, ",")
-	// excludeRules := ""
-	// excludes = append(excludes, "*.sock")
-	// for _, exclude := range excludes {
-	// 	if len(exclude) == 0 {
-	// 		continue
-	// 	}
-	// 	excludeRules += " --exclude " + exclude
-	// }
-
-	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file for exclude rules: %v", err)
-	}
-	defer os.Remove(tempFile.Name()) // Remove the temp file after use
-
-	// Write exclude rules to the temporary file
-	if err = saveExcludesToFile(strings.Split(exclusionRules, ","), tempFile.Name()); err != nil {
-		return fmt.Errorf("failed to save exclude rules to file: %v", err)
-	}
-	path := ""
-	if strings.Contains(sourceDir, "/") {
-		itemDir := strings.ReplaceAll(sourceDir[strings.LastIndex(sourceDir, "/"):], "/", "")
-		aheadDir := sourceDir[:strings.LastIndex(sourceDir, "/")]
-		if len(aheadDir) == 0 {
-			aheadDir = "/"
-		}
-		path += fmt.Sprintf("-C %s %s", aheadDir, itemDir)
-	} else {
-		path = sourceDir
+	return nil
+}
+func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
+	// 确保目标目录存在
+	if err := ensureDirectory(targetDir); err != nil {
+		return err
 	}
 
-	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, tempFile.Name(), path)
+	// 构建排除规则字符串
+	excludeRules := buildExcludeRules(exclusionRules)
+
+	// 构建tar命令的路径参数
+	path := buildPath(sourceDir)
+
+	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
+	commands := fmt.Sprintf("tar -zcf %s %s %s", targetDir+"/"+name, excludeRules, path)
 	global.LOG.Debug(commands)
+	// 执行命令并处理结果
 	stdout, err := cmd.ExecWithTimeOut(commands, 24*time.Hour)
 	if err != nil {
 		if len(stdout) != 0 {
 			global.LOG.Errorf("do handle tar failed, stdout: %s, err: %v", stdout, err)
 			return fmt.Errorf("do handle tar failed, stdout: %s, err: %v", stdout, err)
 		}
+		return err
 	}
 	return nil
 }

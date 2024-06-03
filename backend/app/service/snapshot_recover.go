@@ -13,6 +13,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/constant"
 	"github.com/1Panel-dev/1Panel/backend/global"
 	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
+	"github.com/1Panel-dev/1Panel/backend/utils/common"
 	"github.com/1Panel-dev/1Panel/backend/utils/files"
 	"github.com/pkg/errors"
 )
@@ -88,7 +89,7 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 	}
 
 	if req.IsNew || snap.InterruptStep == "1PanelBinary" {
-		if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel"), "/usr/local/bin/1panel"); err != nil {
+		if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel"), "/usr/local/bin"); err != nil {
 			updateRecoverStatus(snap.ID, isRecover, "1PanelBinary", constant.StatusFailed, err.Error())
 			return
 		}
@@ -96,18 +97,24 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 		req.IsNew = true
 	}
 	if req.IsNew || snap.InterruptStep == "1PctlBinary" {
-		if err := recoverPanel(path.Join(snapFileDir, "1panel/1pctl"), "/usr/local/bin/1pctl"); err != nil {
+		if err := recoverPanel(path.Join(snapFileDir, "1panel/1pctl"), "/usr/local/bin"); err != nil {
 			updateRecoverStatus(snap.ID, isRecover, "1PctlBinary", constant.StatusFailed, err.Error())
 			return
 		}
 		global.LOG.Debug("recover 1pctl from snapshot file successful!")
 		req.IsNew = true
 	}
+	var serviceTargetDir = "/etc/systemd/system"
+	if _, err := os.Stat(serviceTargetDir); os.IsNotExist(err) {
+		// global.LOG.Debug("/etc/systemd/system not found, switching to /etc/init.d/")
+		serviceTargetDir = "/etc/init.d/"
+	}
 	if req.IsNew || snap.InterruptStep == "1PanelService" {
-		if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel.service"), "/etc/init.d/1panel"); err != nil {
+		if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel.service"), serviceTargetDir); err != nil {
 			updateRecoverStatus(snap.ID, isRecover, "1PanelService", constant.StatusFailed, err.Error())
 			return
 		}
+
 		global.LOG.Debug("recover 1panel service from snapshot file successful!")
 		req.IsNew = true
 	}
@@ -142,7 +149,7 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 		global.LOG.Debugf("remove the file %s after the operation is successful", path.Dir(snapFileDir))
 		_ = os.RemoveAll(path.Dir(snapFileDir))
 	}
-	_, _ = cmd.Exec("systemctl daemon-reload && service 1panel restart")
+	_, _ = cmd.Exec("systemctl daemon-reload && systemctl restart 1panel.service")
 }
 
 func backupBeforeRecover(snap model.Snapshot) error {
@@ -215,7 +222,7 @@ func recoverAppData(src string) error {
 
 func recoverDaemonJson(src string, fileOp files.FileOp) error {
 	daemonJsonPath := "/etc/docker/daemon.json"
-	_, errSrc := os.Stat(src)
+	_, errSrc := os.Stat(path.Join(src, "docker/daemon.json"))
 	_, errPath := os.Stat(daemonJsonPath)
 	if os.IsNotExist(errSrc) && os.IsNotExist(errPath) {
 		global.LOG.Debug("the daemon.json file does not exist, nothing happens.")
@@ -235,10 +242,8 @@ func recoverPanel(src string, dst string) error {
 	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("file is not found in %s, err: %v", src, err)
 	}
-	global.LOG.Debugf(fmt.Sprintf("\\cp -f %s %s", src, dst))
-	stdout, err := cmd.Exec(fmt.Sprintf("\\cp -f %s %s", src, dst))
-	if err != nil {
-		return fmt.Errorf("cp file failed, stdout: %v, err: %v", stdout, err)
+	if err := common.CopyFile(src, dst); err != nil {
+		return fmt.Errorf("cp file failed, err: %v", err)
 	}
 	return nil
 }

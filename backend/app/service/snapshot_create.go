@@ -43,8 +43,19 @@ func snapPanel(snap snapHelper, targetDir string) {
 	defer snap.Wg.Done()
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"panel": constant.Running})
 	status := constant.StatusDone
-	if err := cpBinary([]string{"/usr/local/bin/1panel", "/usr/local/bin/1pctl", "/etc/init.d/1panel"}, targetDir); err != nil {
+	if err := common.CopyFile("/usr/local/bin/1panel", path.Join(targetDir, "1panel")); err != nil {
 		status = err.Error()
+	}
+
+	if err := common.CopyFile("/usr/local/bin/1pctl", targetDir); err != nil {
+		status = err.Error()
+	}
+
+	if err := common.CopyFile("/etc/systemd/system/1panel.service", path.Join(targetDir, "1panel.service")); err != nil {
+		// 如果失败，尝试从 /etc/init.d/1panel 回退复制
+		if err := common.CopyFile("/etc/init.d/1panel", path.Join(targetDir, "1panel.service")); err != nil {
+			status = err.Error() // 如果回退也失败，记录错误信息
+		}
 	}
 	snap.Status.Panel = status
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"panel": status})
@@ -59,7 +70,7 @@ func snapDaemonJson(snap snapHelper, targetDir string) {
 		return
 	}
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"daemon_json": constant.Running})
-	if err := cpBinary([]string{"/etc/docker/daemon.json"}, path.Join(targetDir, "daemon.json")); err != nil {
+	if err := common.CopyFile("/etc/docker/daemon.json", targetDir); err != nil {
 		status = err.Error()
 	}
 	snap.Status.DaemonJson = status
@@ -138,7 +149,14 @@ func snapPanelData(snap snapHelper, localDir, targetDir string) {
 	if strings.Contains(localDir, dataDir) {
 		exclusionRules += ("." + strings.ReplaceAll(localDir, dataDir, "") + ";")
 	}
-
+	ignoreVal, _ := settingRepo.Get(settingRepo.WithByKey("SnapshotIgnore"))
+	rules := strings.Split(ignoreVal.Value, ",")
+	for _, ignore := range rules {
+		if len(ignore) == 0 || cmd.CheckIllegal(ignore) {
+			continue
+		}
+		exclusionRules += ("." + strings.ReplaceAll(ignore, dataDir, "") + ";")
+	}
 	_ = snapshotRepo.Update(snap.SnapID, map[string]interface{}{"status": "OnSaveData"})
 	sysIP, _ := settingRepo.Get(settingRepo.WithByKey("SystemIP"))
 	_ = settingRepo.Update("SystemIP", "")
@@ -154,10 +172,6 @@ func snapPanelData(snap snapHelper, localDir, targetDir string) {
 }
 
 func snapCompress(snap snapHelper, rootDir string) {
-	defer func() {
-		global.LOG.Debugf("remove snapshot file %s", rootDir)
-		_ = os.RemoveAll(rootDir)
-	}()
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"compress": constant.StatusRunning})
 	tmpDir := path.Join(global.CONF.System.TmpDir, "system")
 	fileName := fmt.Sprintf("%s.tar.gz", path.Base(rootDir))
@@ -178,15 +192,13 @@ func snapCompress(snap snapHelper, rootDir string) {
 	snap.Status.Compress = constant.StatusDone
 	snap.Status.Size = size
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"compress": constant.StatusDone, "size": size})
+
+	global.LOG.Debugf("remove snapshot file %s", rootDir)
+	_ = os.RemoveAll(rootDir)
 }
 
 func snapUpload(snap snapHelper, accounts string, file string) {
 	source := path.Join(global.CONF.System.TmpDir, "system", path.Base(file))
-	defer func() {
-		global.LOG.Debugf("remove snapshot file %s", source)
-		_ = os.Remove(source)
-	}()
-
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"upload": constant.StatusUploading})
 	accountMap, err := loadClientMap(accounts)
 	if err != nil {
@@ -207,6 +219,9 @@ func snapUpload(snap snapHelper, accounts string, file string) {
 	}
 	snap.Status.Upload = constant.StatusDone
 	_ = snapshotRepo.UpdateStatus(snap.Status.ID, map[string]interface{}{"upload": constant.StatusDone})
+
+	global.LOG.Debugf("remove snapshot file %s", source)
+	_ = os.Remove(source)
 }
 
 func handleSnapTar(sourceDir, targetDir, name, exclusionRules string) error {
@@ -216,29 +231,24 @@ func handleSnapTar(sourceDir, targetDir, name, exclusionRules string) error {
 		}
 	}
 
-	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file for exclude rules: %v", err)
+	exMap := make(map[string]struct{})
+	exStr := ""
+	excludes := strings.Split(exclusionRules, ";")
+	excludes = append(excludes, "*.sock")
+	for _, exclude := range excludes {
+		if len(exclude) == 0 {
+			continue
+		}
+		if _, ok := exMap[exclude]; ok {
+			continue
+		}
+		exStr += " --exclude "
+		exStr += exclude
+		exMap[exclude] = struct{}{}
 	}
-	defer os.Remove(tempFile.Name()) // Remove the temp file after use
 
-	// Write exclude rules to the temporary file
-	if err = saveExcludesToFile(strings.Split(exclusionRules, ","), tempFile.Name()); err != nil {
-		return fmt.Errorf("failed to save exclude rules to file: %v", err)
-	}
-
-	// exStr := ""
-	// excludes := strings.Split(exclusionRules, ";")
-	// excludes = append(excludes, "*.sock")
-	// for _, exclude := range excludes {
-	// 	if len(exclude) == 0 {
-	// 		continue
-	// 	}
-	// 	exStr += " --exclude "
-	// 	exStr += exclude
-	// }
-
-	commands := fmt.Sprintf("tar -zcf %s -X %s -C %s .", targetDir+"/"+name, tempFile.Name(), sourceDir)
+	commands := fmt.Sprintf("tar -zcf %s %s -C %s .", targetDir+"/"+name, exStr, sourceDir)
+	// 移除openwrt中不支持的选项--warning=no-file-changed和--ignore-failed-read，提升兼容性；
 	global.LOG.Debug(commands)
 	stdout, err := cmd.ExecWithTimeOut(commands, 30*time.Minute)
 	if err != nil {
