@@ -16,6 +16,7 @@ type System struct {
 	BaseDir        string `mapstructure:"base_dir"`
 	Mode           string `mapstructure:"mode"`
 	RepoUrl        string `mapstructure:"repo_url"`
+	CustomURL      string `mapstructure:"CustomUpgradeCheckURL"`
 	Version        string `mapstructure:"version"`
 	Username       string `mapstructure:"username"`
 	Password       string `mapstructure:"password"`
