@@ -9,6 +9,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/1Panel-dev/1Panel/backend/app/dto"
@@ -22,6 +23,15 @@ import (
 
 type UpgradeService struct{}
 
+type Release struct {
+	TagName string `json:"tag_name"`
+}
+
+var (
+	wrtFound bool
+	once     sync.Once
+)
+
 type IUpgradeService interface {
 	Upgrade(req dto.Upgrade) error
 	LoadNotes(req dto.Upgrade) (string, error)
@@ -32,13 +42,19 @@ func NewIUpgradeService() IUpgradeService {
 	return &UpgradeService{}
 }
 
+func checkWRTOnce(version string) {
+	once.Do(func() {
+		wrtFound = strings.Contains(strings.ToLower(version), "wrt")
+	})
+}
+
 func (u *UpgradeService) SearchUpgrade() (*dto.UpgradeInfo, error) {
 	var upgrade dto.UpgradeInfo
 	currentVersion, err := settingRepo.Get(settingRepo.WithByKey("SystemVersion"))
 	if err != nil {
 		return nil, err
 	}
-
+	checkWRTOnce(currentVersion.Value)
 	latestVersion, err := u.loadVersion(true, currentVersion.Value)
 	if err != nil {
 		global.LOG.Infof("load latest version failed, err: %v", err)
@@ -66,8 +82,8 @@ func (u *UpgradeService) SearchUpgrade() (*dto.UpgradeInfo, error) {
 	if upgrade.NewVersion != "" {
 		itemVersion = upgrade.NewVersion
 	}
-	notes, err := u.loadReleaseNotes(fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.CONF.System.RepoUrl, global.CONF.System.Mode, itemVersion, itemVersion))
-
+	notespath := fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.CONF.System.RepoUrl, global.CONF.System.Mode, itemVersion, itemVersion)
+	notes, err := u.loadReleaseNotes(notespath)
 	if err != nil {
 		return nil, fmt.Errorf("load releases-notes of version %s failed, err: %v", latestVersion, err)
 	}
@@ -76,7 +92,9 @@ func (u *UpgradeService) SearchUpgrade() (*dto.UpgradeInfo, error) {
 }
 
 func (u *UpgradeService) LoadNotes(req dto.Upgrade) (string, error) {
-	notes, err := u.loadReleaseNotes(fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.CONF.System.RepoUrl, global.CONF.System.Mode, req.Version, req.Version))
+	releaseNotesURL := fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.CONF.System.RepoUrl, global.CONF.System.Mode, req.Version, req.Version)
+
+	notes, err := u.loadReleaseNotes(releaseNotesURL)
 	if err != nil {
 		return "", fmt.Errorf("load releases-notes of version %s failed, err: %v", req.Version, err)
 	}
@@ -101,6 +119,9 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 	}
 
 	downloadPath := fmt.Sprintf("%s/%s/%s/release", global.CONF.System.RepoUrl, global.CONF.System.Mode, req.Version)
+	if wrtFound {
+		downloadPath = fmt.Sprintf("%s/%s/%s", global.CONF.System.CustomURL, "download", req.Version)
+	}
 	fileName := fmt.Sprintf("1panel-%s-%s-%s.tar.gz", req.Version, "linux", itemArch)
 	_ = settingRepo.Update("SystemStatus", "Upgrading")
 	go func() {
@@ -148,12 +169,17 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 			return
 		}
 
-		if err := cpBinary([]string{tmpDir + "/1panel.service"}, "/etc/init.d/1panel"); err != nil {
-			global.LOG.Errorf("upgrade 1panel.service failed, err: %v", err)
-			u.handleRollback(originalDir, 3)
+		if _, err := os.Stat("/etc/init.d/1panel"); err == nil {
+			// 如果存在，则无需升级，直接返回或进行其他处理
 			return
+		} else if os.IsNotExist(err) {
+			// 如果不存在，则执行复制操作来升级 1panel.service
+			if err := cpBinary([]string{tmpDir + "/1panel.service"}, "/etc/systemd/system/1panel.service"); err != nil {
+				global.LOG.Errorf("upgrade 1panel.service failed, err: %v", err)
+				u.handleRollback(originalDir, 3)
+				return
+			}
 		}
-
 		global.LOG.Info("upgrade successful!")
 		go writeLogs(req.Version)
 		_ = settingRepo.Update("SystemVersion", req.Version)
@@ -171,8 +197,14 @@ func (u *UpgradeService) handleBackup(fileOp files.FileOp, originalDir string) e
 	if err := fileOp.Copy("/usr/local/bin/1pctl", originalDir); err != nil {
 		return err
 	}
-	if err := fileOp.Copy("/etc/init.d/1panel", originalDir); err != nil {
-		return err
+	if _, err := os.Stat("/etc/init.d/1panel"); err == nil {
+		if err := fileOp.Copy("/etc/init.d/1panel", path.Join(originalDir, "1panel.service")); err != nil {
+			return err
+		}
+	} else if os.IsNotExist(err) {
+		if err := fileOp.Copy("/etc/systemd/system/1panel.service", originalDir); err != nil {
+			return err
+		}
 	}
 	dbPath := global.CONF.System.DbPath + "/" + global.CONF.System.DbFile
 	if err := fileOp.Copy(dbPath, originalDir); err != nil {
@@ -199,54 +231,93 @@ func (u *UpgradeService) handleRollback(originalDir string, errStep int) {
 	if errStep == 2 {
 		return
 	}
-	if err := cpBinary([]string{originalDir + "/1panel.service"}, "/etc/init.d/1panel"); err != nil {
-		global.LOG.Errorf("rollback 1panel failed, err: %v", err)
+	if _, err := os.Stat("/etc/init.d/1panel"); err == nil {
+		if err := cpBinary([]string{originalDir + "/1panel.service"}, "/etc/init.d/1panel"); err != nil {
+			global.LOG.Errorf("rollback wrt1panel failed, err: %v", err)
+		}
+	} else if os.IsNotExist(err) {
+		if err := cpBinary([]string{originalDir + "/1panel.service"}, "/etc/systemd/system/1panel.service"); err != nil {
+			global.LOG.Errorf("rollback 1panel failed, err: %v", err)
+		}
 	}
 }
 
+func getLatestReleaseTag(repo string) (string, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch releases: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	var release Release
+	err = json.Unmarshal(body, &release)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse JSON: %v", err)
+	}
+
+	return release.TagName, nil
+}
 func (u *UpgradeService) loadVersion(isLatest bool, currentVersion string) (string, error) {
-	path := fmt.Sprintf("%s/%s/latest", global.CONF.System.RepoUrl, global.CONF.System.Mode)
-	if !isLatest {
-		path = fmt.Sprintf("%s/%s/latest.current", global.CONF.System.RepoUrl, global.CONF.System.Mode)
-	}
-	latestVersionRes, err := http.Get(path)
-	if err != nil {
-		return "", buserr.New(constant.ErrOSSConn)
-	}
-	defer latestVersionRes.Body.Close()
-	version, err := io.ReadAll(latestVersionRes.Body)
-	if err != nil {
-		return "", buserr.New(constant.ErrOSSConn)
-	}
-	if isLatest {
-		return string(version), nil
-	}
-
-	versionMap := make(map[string]string)
-	if err := json.Unmarshal(version, &versionMap); err != nil {
-		return "", buserr.New(constant.ErrOSSConn)
-	}
-
 	if len(currentVersion) < 4 {
 		return "", fmt.Errorf("current version is error format: %s", currentVersion)
 	}
-	if version, ok := versionMap[currentVersion[0:4]]; ok {
-		return version, nil
-	}
-	return "", buserr.New(constant.ErrOSSConn)
-}
+	if wrtFound {
+		repo := "gcsong023/wrt1panel"
+		version, err := getLatestReleaseTag(repo)
+		if err != nil {
+			return "", buserr.New(constant.ErrOSSConn)
+		}
 
+		return string(version), nil
+
+	} else {
+		path := fmt.Sprintf("%s/%s/latest", global.CONF.System.RepoUrl, global.CONF.System.Mode)
+		if !isLatest {
+			path = fmt.Sprintf("%s/%s/latest.current", global.CONF.System.RepoUrl, global.CONF.System.Mode)
+		}
+		latestVersionRes, err := http.Get(path)
+		if err != nil {
+			return "", buserr.New(constant.ErrOSSConn)
+		}
+		defer latestVersionRes.Body.Close()
+		version, err := io.ReadAll(latestVersionRes.Body)
+		if err != nil {
+			return "", buserr.New(constant.ErrOSSConn)
+		}
+		if isLatest {
+			return string(version), nil
+		}
+		versionMap := make(map[string]string)
+		if err := json.Unmarshal(version, &versionMap); err != nil {
+			return "", buserr.New(constant.ErrOSSConn)
+		}
+		if version, ok := versionMap[currentVersion[0:4]]; ok {
+			return version, nil
+		}
+		return "", buserr.New(constant.ErrOSSConn)
+	}
+}
 func (u *UpgradeService) loadReleaseNotes(path string) (string, error) {
-	releaseNotes, err := http.Get(path)
-	if err != nil {
-		return "", err
+	if wrtFound {
+		return "", nil
+	} else {
+		releaseNotes, err := http.Get(path)
+		if err != nil {
+			return "", err
+		}
+		defer releaseNotes.Body.Close()
+		release, err := io.ReadAll(releaseNotes.Body)
+		if err != nil {
+			return "", err
+		}
+		return string(release), nil
 	}
-	defer releaseNotes.Body.Close()
-	release, err := io.ReadAll(releaseNotes.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(release), nil
 }
 
 func loadArch() (string, error) {
