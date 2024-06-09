@@ -3,6 +3,7 @@ system:
   base_dir: /opt
   mode: stable
   repo_url: https://resource.fit2cloud.com/1panel/package
+  CustomUpgradeCheckURL: https://github.com/gcsong023/wrt1panel/releases
   app_repo: https://apps-assets.fit2cloud.com
   is_demo: false
   port: 9999
