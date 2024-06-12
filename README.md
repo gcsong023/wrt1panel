@@ -40,6 +40,7 @@
 curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sudo bash quick_start.sh
 ```
 在 openwrt 终端 执行如下命令在openwrt中一键安装官方1Panel:
+### 目前仓库的代码版本如果是新安装应用商店OpenResty的话，会报错提示：找不到"/www/common..."  
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/quick_start.sh -o quick_start.sh && bash quick_start.sh
