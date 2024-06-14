@@ -170,9 +170,17 @@ func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
 
 	// 构建tar命令的路径参数
 	path := buildPath(sourceDir)
+	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file for exclude rules: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
 
+	if err := os.WriteFile(tempFile.Name(), []byte(strings.TrimSpace(excludeRules)), 0600); err != nil {
+		return fmt.Errorf("failed to write excludeRules to file: %v", err)
+	}
 	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
-	commands := fmt.Sprintf("tar -zcf %s %s %s", targetDir+"/"+name, excludeRules, path)
+	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, excludeRules, path)
 	global.LOG.Debug(commands)
 	// 执行命令并处理结果
 	stdout, err := cmd.ExecWithTimeOut(commands, 24*time.Hour)

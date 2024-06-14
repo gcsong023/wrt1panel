@@ -225,30 +225,26 @@ func snapUpload(snap snapHelper, accounts string, file string) {
 }
 
 func handleSnapTar(sourceDir, targetDir, name, exclusionRules string) error {
-	if _, err := os.Stat(targetDir); err != nil && os.IsNotExist(err) {
-		if err = os.MkdirAll(targetDir, os.ModePerm); err != nil {
-			return err
-		}
+	if err := ensureDirectory(targetDir); err != nil {
+		return err
 	}
-
-	exMap := make(map[string]struct{})
-	exStr := ""
-	excludes := strings.Split(exclusionRules, ";")
-	excludes = append(excludes, "*.sock")
-	for _, exclude := range excludes {
-		if len(exclude) == 0 {
-			continue
-		}
-		if _, ok := exMap[exclude]; ok {
-			continue
-		}
-		exStr += " --exclude "
-		exStr += exclude
-		exMap[exclude] = struct{}{}
+	// 构建排除规则字符串
+	excludeRules := buildExcludeRules(exclusionRules)
+	// 构建tar命令的路径参数
+	path := buildPath(sourceDir)
+	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file for exclude rules: %v", err)
 	}
+	defer os.Remove(tempFile.Name())
 
-	commands := fmt.Sprintf("tar -zcf %s %s -C %s .", targetDir+"/"+name, exStr, sourceDir)
-	// 移除openwrt中不支持的选项--warning=no-file-changed和--ignore-failed-read，提升兼容性；
+	if err := os.WriteFile(tempFile.Name(), []byte(strings.TrimSpace(excludeRules)), 0600); err != nil {
+		return fmt.Errorf("failed to write excludeRules to file: %v", err)
+	}
+	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
+	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, excludeRules, path)
+
+	// 执行命令并处理结果
 	global.LOG.Debug(commands)
 	stdout, err := cmd.ExecWithTimeOut(commands, 30*time.Minute)
 	if err != nil {
