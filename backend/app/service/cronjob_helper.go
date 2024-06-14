@@ -127,45 +127,21 @@ func (u *CronjobService) handleNtpSync() error {
 	return nil
 }
 
-func buildExcludeRules(rules string) string {
-	var excludes []string
-	defaultExclude := "*.sock"
-	excludesCapacity := len(rules) + len(defaultExclude)
-	excludeMap := make(map[string]struct{})
-	// 对输入的rules进行验证和清理
-	ruleParts := strings.FieldsFunc(rules, func(r rune) bool {
-		return r == ',' || r == ';'
-	})
-
-	// 如果输入的rules为空，则添加默认规则
-	if rules == "" {
-		excludeMap[defaultExclude] = struct{}{}
-	}
-
-	for _, rule := range ruleParts {
-		cleanRule := filepath.Clean(rule)
-		if cleanRule != "" {
-			if !filepath.IsAbs(cleanRule) {
-				excludeMap[cleanRule] = struct{}{}
-			}
+func buildExcludesString(exclusionRules string, exMap map[string]struct{}) string {
+	excludes := strings.Split(exclusionRules, ",")
+	excludes = append(excludes, "*.sock")
+	var exStr strings.Builder
+	for _, exclude := range excludes {
+		if len(exclude) == 0 {
+			continue
+		}
+		if _, ok := exMap[exclude]; !ok {
+			exStr.WriteString(" --exclude ")
+			exStr.WriteString(exclude)
+			exMap[exclude] = struct{}{}
 		}
 	}
-
-	// 从map转换到切片，并根据先前的估计预分配切片的容量
-	excludes = make([]string, 0, excludesCapacity)
-	for rule := range excludeMap {
-		excludes = append(excludes, rule)
-	}
-
-	// 使用strings.Builder优化字符串构建
-	builder := strings.Builder{}
-	builder.Grow(len(excludes) * (len(" --exclude ") + 1)) // 估算字符串长度
-	for _, exclude := range excludes {
-		// builder.WriteString(" --exclude ")
-		builder.WriteString(exclude)
-	}
-
-	return builder.String()
+	return exStr.String()
 }
 
 func buildPath(dir string) string {
@@ -189,8 +165,8 @@ func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
 		return err
 	}
 
-	// 构建排除规则字符串
-	excludeRules := buildExcludeRules(exclusionRules)
+	exMap := make(map[string]struct{})
+	exStr := buildExcludesString(exclusionRules, exMap)
 
 	// 构建tar命令的路径参数
 	path := buildPath(sourceDir)
@@ -200,11 +176,11 @@ func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
 	}
 	defer os.Remove(tempFile.Name())
 
-	if err := os.WriteFile(tempFile.Name(), []byte(strings.TrimSpace(excludeRules)), 0600); err != nil {
+	if err := os.WriteFile(tempFile.Name(), []byte(strings.TrimSpace(exStr)), 0600); err != nil {
 		return fmt.Errorf("failed to write excludeRules to file: %v", err)
 	}
 	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
-	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, excludeRules, path)
+	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, exStr, path)
 	global.LOG.Debug(commands)
 	// 执行命令并处理结果
 	stdout, err := cmd.ExecWithTimeOut(commands, 24*time.Hour)

@@ -223,13 +223,29 @@ func snapUpload(snap snapHelper, accounts string, file string) {
 	global.LOG.Debugf("remove snapshot file %s", source)
 	_ = os.Remove(source)
 }
-
+func buildExcludeRules(exclusionRules string, exMap map[string]struct{}) string {
+	excludes := strings.Split(exclusionRules, ";")
+	excludes = append(excludes, "*.sock")
+	var exStr strings.Builder
+	for _, exclude := range excludes {
+		if len(exclude) == 0 {
+			continue
+		}
+		if _, ok := exMap[exclude]; !ok {
+			exStr.WriteString(" --exclude ")
+			exStr.WriteString(exclude)
+			exMap[exclude] = struct{}{}
+		}
+	}
+	return exStr.String()
+}
 func handleSnapTar(sourceDir, targetDir, name, exclusionRules string) error {
 	if err := ensureDirectory(targetDir); err != nil {
 		return err
 	}
 	// 构建排除规则字符串
-	excludeRules := buildExcludeRules(exclusionRules)
+	exMap := make(map[string]struct{})
+	excludeRules := buildExcludeRules(exclusionRules, exMap)
 	// 构建tar命令的路径参数
 	path := buildPath(sourceDir)
 	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
