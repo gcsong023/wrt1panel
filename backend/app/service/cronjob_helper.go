@@ -129,18 +129,42 @@ func (u *CronjobService) handleNtpSync() error {
 
 func buildExcludeRules(rules string) string {
 	var excludes []string
-	if rules != "" {
-		excludes = append(strings.Split(rules, ","), "*.sock")
-	} else {
-		excludes = append([]string{"*.sock"}, "")
+	defaultExclude := "*.sock"
+	excludesCapacity := len(rules) + len(defaultExclude)
+	excludeMap := make(map[string]struct{})
+	// 对输入的rules进行验证和清理
+	ruleParts := strings.FieldsFunc(rules, func(r rune) bool {
+		return r == ',' || r == ';'
+	})
+
+	// 如果输入的rules为空，则添加默认规则
+	if rules == "" {
+		excludeMap[defaultExclude] = struct{}{}
 	}
-	builder := strings.Builder{}
-	for _, exclude := range excludes {
-		if exclude != "" {
-			builder.WriteString(" --exclude ")
-			builder.WriteString(exclude)
+
+	for _, rule := range ruleParts {
+		cleanRule := filepath.Clean(rule)
+		if cleanRule != "" {
+			if !filepath.IsAbs(cleanRule) {
+				excludeMap[cleanRule] = struct{}{}
+			}
 		}
 	}
+
+	// 从map转换到切片，并根据先前的估计预分配切片的容量
+	excludes = make([]string, 0, excludesCapacity)
+	for rule := range excludeMap {
+		excludes = append(excludes, rule)
+	}
+
+	// 使用strings.Builder优化字符串构建
+	builder := strings.Builder{}
+	builder.Grow(len(excludes) * (len(" --exclude ") + 1)) // 估算字符串长度
+	for _, exclude := range excludes {
+		// builder.WriteString(" --exclude ")
+		builder.WriteString(exclude)
+	}
+
 	return builder.String()
 }
 
