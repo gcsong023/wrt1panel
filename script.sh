@@ -39,4 +39,7 @@ if [ ! -f "install.sh" ]; then
   wget https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/install.sh
 fi
 
+if [ ! -f "1paneld" ]; then 
+  wget https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/etc/init.d/1paneld
+fi
 chmod 755 1pctl install.sh
