@@ -223,42 +223,51 @@ func snapUpload(snap snapHelper, accounts string, file string) {
 	global.LOG.Debugf("remove snapshot file %s", source)
 	_ = os.Remove(source)
 }
-func buildExcludeRules(exclusionRules string, exMap map[string]struct{}) string {
-	excludes := strings.Split(exclusionRules, ";")
-	excludes = append(excludes, "*.sock")
-	var exStr strings.Builder
+func saveExcludesToFile(excludes []string, outputPath string) error {
+	// 拼接所有规则为一个字符串，每条规则占一行
+	rules := ""
 	for _, exclude := range excludes {
-		if len(exclude) == 0 {
-			continue
-		}
-		if _, ok := exMap[exclude]; !ok {
-			exStr.WriteString(" --exclude ")
-			exStr.WriteString(exclude)
-			exMap[exclude] = struct{}{}
+		if len(exclude) > 0 {
+			rules += exclude + "\n"
 		}
 	}
-	return exStr.String()
+
+	// 将规则字符串写入文件
+	if err := os.WriteFile(outputPath, []byte(rules), 0644); err != nil {
+		return fmt.Errorf("failed to write rules to file: %v", err)
+	}
+
+	return nil
 }
 func handleSnapTar(sourceDir, targetDir, name, exclusionRules string) error {
 	if err := ensureDirectory(targetDir); err != nil {
 		return err
 	}
-	// 构建排除规则字符串
-	exMap := make(map[string]struct{})
-	excludeRules := buildExcludeRules(exclusionRules, exMap)
-	// 构建tar命令的路径参数
-	path := buildPath(sourceDir)
+
 	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for exclude rules: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer os.Remove(tempFile.Name()) // Remove the temp file after use
 
-	if err := os.WriteFile(tempFile.Name(), []byte(strings.TrimSpace(excludeRules)), 0600); err != nil {
-		return fmt.Errorf("failed to write excludeRules to file: %v", err)
+	// Write exclude rules to the temporary file
+	if err = saveExcludesToFile(strings.Split(exclusionRules, ","), tempFile.Name()); err != nil {
+		return fmt.Errorf("failed to save exclude rules to file: %v", err)
 	}
-	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
-	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, excludeRules, path)
+
+	path := ""
+	if strings.Contains(sourceDir, "/") {
+		itemDir := strings.ReplaceAll(sourceDir[strings.LastIndex(sourceDir, "/"):], "/", "")
+		aheadDir := sourceDir[:strings.LastIndex(sourceDir, "/")]
+		if len(aheadDir) == 0 {
+			aheadDir = "/"
+		}
+		path += fmt.Sprintf("-C %s %s", aheadDir, itemDir)
+	} else {
+		path = sourceDir
+	}
+
+	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, tempFile.Name(), path)
 
 	// 执行命令并处理结果
 	global.LOG.Debug(commands)

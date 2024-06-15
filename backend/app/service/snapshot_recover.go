@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -80,7 +81,17 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 	}
 	if req.IsNew || snap.InterruptStep == "DaemonJson" {
 		fileOp := files.NewFileOp()
+
+		// 检查 daemon.json 是否存在
+		daemonJsonPath := filepath.Join(snapFileDir, "daemon.json")
+		if _, err := os.Stat(daemonJsonPath); os.IsNotExist(err) {
+			global.LOG.Debug("daemon.json not found, skipping recovery and returning nil.")
+			return
+		}
+
+		// 尝试恢复daemon.json
 		if err := recoverDaemonJson(snapFileDir, fileOp); err != nil {
+			// 只有当daemon.json存在且恢复出错时，才更新恢复状态
 			updateRecoverStatus(snap.ID, isRecover, "DaemonJson", constant.StatusFailed, err.Error())
 			return
 		}

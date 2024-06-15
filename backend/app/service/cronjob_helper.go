@@ -165,22 +165,30 @@ func handleTar(sourceDir, targetDir, name, exclusionRules string) error {
 		return err
 	}
 
-	exMap := make(map[string]struct{})
-	exStr := buildExcludesString(exclusionRules, exMap)
-
-	// 构建tar命令的路径参数
-	path := buildPath(sourceDir)
 	tempFile, err := os.CreateTemp("", "exclude_rules_*.txt")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for exclude rules: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer os.Remove(tempFile.Name()) // Remove the temp file after use
 
-	if err := os.WriteFile(tempFile.Name(), []byte(strings.TrimSpace(exStr)), 0600); err != nil {
-		return fmt.Errorf("failed to write excludeRules to file: %v", err)
+	// Write exclude rules to the temporary file
+	if err = saveExcludesToFile(strings.Split(exclusionRules, ","), tempFile.Name()); err != nil {
+		return fmt.Errorf("failed to save exclude rules to file: %v", err)
 	}
-	// 构建tar命令，移除不兼容的--warning=no-file-changed和--ignore-failed-read选项
-	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, exStr, path)
+
+	path := ""
+	if strings.Contains(sourceDir, "/") {
+		itemDir := strings.ReplaceAll(sourceDir[strings.LastIndex(sourceDir, "/"):], "/", "")
+		aheadDir := sourceDir[:strings.LastIndex(sourceDir, "/")]
+		if len(aheadDir) == 0 {
+			aheadDir = "/"
+		}
+		path += fmt.Sprintf("-C %s %s", aheadDir, itemDir)
+	} else {
+		path = sourceDir
+	}
+
+	commands := fmt.Sprintf("tar -zcf %s -X %s %s", targetDir+"/"+name, tempFile.Name(), path)
 	global.LOG.Debug(commands)
 	// 执行命令并处理结果
 	stdout, err := cmd.ExecWithTimeOut(commands, 24*time.Hour)
