@@ -12,7 +12,7 @@
 ------------------------------
 
 1Panel 是新一代的 Linux 服务器运维管理面板。
-本仓库中的代码基于1panel-V1.10.1-lts 修改，仅限于在openwrt环境中运行，CENTOS、Ubuntu、Debian、Raspbian等系统请到1panel官方仓库查看。
+本仓库中的代码基于1panel-V1.10.1-lts 修改，为适配openwrt环境中运行1panel而创建，CENTOS、Ubuntu、Debian、Raspbian等系统请到1panel官方仓库查看或自行尝试能否使用。
 
 - **高效管理**：用户可以通过 Web 图形界面轻松管理 Linux 服务器，实现主机监控、文件管理、数据库管理、容器管理等功能；
 - **快速建站**：深度集成开源建站软件 WordPress 和 [Halo](https://github.com/halo-dev/halo/)，域名绑定、SSL 证书配置等操作一键搞定；
@@ -39,8 +39,7 @@
 ```sh
 curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sudo bash quick_start.sh
 ```
-在 openwrt 终端 执行如下命令在openwrt中一键安装官方1Panel:
-### 目前仓库的代码版本如果是新安装应用商店OpenResty的话，会报错提示：找不到"/www/common..."  
+在 openwrt 终端 执行如下命令在openwrt中一键安装wrt1panel或官方1Panel :
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/quick_start.sh -o quick_start.sh && bash quick_start.sh
@@ -50,27 +49,6 @@ curl -sSL https://raw.githubusercontent.com/gcsong023/wrt_installer/wrt_1panel/q
 ### 安装过程中遇到问题
 一些常见的安装问题及解决办法，请到[wrt_installer](https://github.com/gcsong023/wrt_installer)查看。
 
-**学习资料**
-
-- [在线文档](https://1panel.cn/docs/)
-- [教学视频](https://space.bilibili.com/510493147/channel/collectiondetail?sid=1199760)
-- [社区论坛](https://bbs.fit2cloud.com/c/1p/7)
-- [如何加入微信交流群?](https://bbs.fit2cloud.com/t/topic/2147)
-
-## 安全说明
-
-如果您在使用过程中发现任何安全问题，请通过以下方式直接联系我们：
-
-- 邮箱：support@fit2cloud.com
-- 电话：400-052-0755
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=1Panel-dev/1Panel&type=Date)](https://star-history.com/#1Panel-dev/1Panel&Date)
-
-## FOSSA Status
-
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2F1Panel-dev%2F1Panel.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2F1Panel-dev%2F1Panel?ref=badge_large)
 
 ## License
 
