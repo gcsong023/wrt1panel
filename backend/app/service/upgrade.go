@@ -169,7 +169,7 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 			return
 		}
 
-		if _, err := os.Stat("/etc/init.d/1panel"); err == nil {
+		if _, err := os.Stat("/etc/init.d/1paneld"); err == nil {
 			// 如果存在，则无需升级，直接返回或进行其他处理
 			return
 		} else if os.IsNotExist(err) {
@@ -197,8 +197,9 @@ func (u *UpgradeService) handleBackup(fileOp files.FileOp, originalDir string) e
 	if err := fileOp.Copy("/usr/local/bin/1pctl", originalDir); err != nil {
 		return err
 	}
-	if _, err := os.Stat("/etc/init.d/1panel"); err == nil {
-		if err := fileOp.Copy("/etc/init.d/1panel", path.Join(originalDir, "1panel.service")); err != nil {
+
+	if _, err := os.Stat("/etc/init.d/1paneld"); err == nil {
+		if err := fileOp.Copy("/etc/init.d/1paneld", originalDir); err != nil {
 			return err
 		}
 	} else if os.IsNotExist(err) {
@@ -231,8 +232,8 @@ func (u *UpgradeService) handleRollback(originalDir string, errStep int) {
 	if errStep == 2 {
 		return
 	}
-	if _, err := os.Stat("/etc/init.d/1panel"); err == nil {
-		if err := cpBinary([]string{originalDir + "/1panel.service"}, "/etc/init.d/1panel"); err != nil {
+	if _, err := os.Stat("/etc/init.d/1paneld"); err == nil {
+		if err := cpBinary([]string{originalDir + "/1paneld"}, "/etc/init.d/1paneld"); err != nil {
 			global.LOG.Errorf("rollback wrt1panel failed, err: %v", err)
 		}
 	} else if os.IsNotExist(err) {

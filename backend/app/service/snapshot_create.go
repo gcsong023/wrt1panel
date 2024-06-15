@@ -52,8 +52,8 @@ func snapPanel(snap snapHelper, targetDir string) {
 	}
 
 	if err := common.CopyFile("/etc/systemd/system/1panel.service", path.Join(targetDir, "1panel.service")); err != nil {
-		// 如果失败，尝试从 /etc/init.d/1panel 回退复制
-		if err := common.CopyFile("/etc/init.d/1panel", path.Join(targetDir, "1panel.service")); err != nil {
+		// 如果失败，尝试从 /etc/init.d/1paneld 回退复制
+		if err := common.CopyFile("/etc/init.d/1paneld", path.Join(targetDir, "1paneld")); err != nil {
 			status = err.Error() // 如果回退也失败，记录错误信息
 		}
 	}
