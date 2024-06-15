@@ -152,52 +152,87 @@ func createProxyFile(website *model.Website) error {
 	return nil
 }
 
+// 将重复的目录和文件创建逻辑抽象成单独的函数
+func createPathIfNotExists(fileOp files.FileOp, pathStr string, perm uint32) error {
+	if !fileOp.Stat(pathStr) {
+		// 将uint32类型的perm转换为os.FileMode
+		fileMode := os.FileMode(perm)
+		if err := fileOp.CreateDir(pathStr, fileMode); err != nil {
+			return errors.Wrapf(err, "failed to create directory: %s", pathStr)
+		}
+	}
+	return nil
+}
+
+func createFileIfNotExists(fileOp files.FileOp, pathStr string) error {
+	if !fileOp.Stat(pathStr) {
+		if err := fileOp.CreateFile(pathStr); err != nil {
+			return errors.Wrapf(err, "failed to create file: %s", pathStr)
+		}
+	}
+	return nil
+}
+
 func createWebsiteFolder(nginxInstall model.AppInstall, website *model.Website, runtime *model.Runtime) error {
 	nginxFolder := path.Join(constant.AppInstallDir, constant.AppOpenresty, nginxInstall.Name)
 	siteFolder := path.Join(nginxFolder, "www", "sites", website.Alias)
 	fileOp := files.NewFileOp()
-	if !fileOp.Stat(siteFolder) {
-		if err := fileOp.CreateDir(siteFolder, 0755); err != nil {
+
+	// 使用封装的函数减少重复代码
+	dirsToCreate := []string{
+		siteFolder,
+		path.Join(siteFolder, "log"),
+		path.Join(siteFolder, "index"),
+		path.Join(siteFolder, "ssl"),
+	}
+	filesToCreate := []string{
+		path.Join(siteFolder, "log", "access.log"),
+		path.Join(siteFolder, "log", "error.log"),
+	}
+	for _, dir := range dirsToCreate {
+		if err := createPathIfNotExists(fileOp, dir, 0755); err != nil {
 			return err
 		}
-		if err := fileOp.CreateDir(path.Join(siteFolder, "log"), 0755); err != nil {
+	}
+	for _, file := range filesToCreate {
+		if err := createFileIfNotExists(fileOp, file); err != nil {
 			return err
 		}
-		if err := fileOp.CreateFile(path.Join(siteFolder, "log", "access.log")); err != nil {
-			return err
-		}
-		if err := fileOp.CreateFile(path.Join(siteFolder, "log", "error.log")); err != nil {
-			return err
-		}
-		if err := fileOp.CreateDir(path.Join(siteFolder, "index"), 0775); err != nil {
-			return err
-		}
-		if err := fileOp.CreateDir(path.Join(siteFolder, "ssl"), 0755); err != nil {
-			return err
-		}
-		if website.Type == constant.Runtime {
-			if runtime.Type == constant.RuntimePHP && runtime.Resource == constant.ResourceLocal {
-				phpPoolDir := path.Join(siteFolder, "php-pool")
-				if err := fileOp.CreateDir(phpPoolDir, 0755); err != nil {
-					return err
-				}
-				if err := fileOp.CreateFile(path.Join(phpPoolDir, "php-fpm.sock")); err != nil {
-					return err
-				}
-			}
-		}
-		if website.Type == constant.Static || (website.Type == constant.Runtime && runtime.Type == constant.RuntimePHP) {
-			if err := createIndexFile(website, runtime); err != nil {
+	}
+
+	// 根据网站类型创建额外的目录和文件
+	if website.Type == constant.Runtime {
+		if runtime.Type == constant.RuntimePHP && runtime.Resource == constant.ResourceLocal {
+			phpPoolDir := path.Join(siteFolder, "php-pool")
+			if err := createPathIfNotExists(fileOp, phpPoolDir, 0755); err != nil {
 				return err
 			}
-		}
-		if website.Type == constant.Proxy {
-			if err := createProxyFile(website); err != nil {
+			if err := createFileIfNotExists(fileOp, path.Join(phpPoolDir, "php-fpm.sock")); err != nil {
 				return err
 			}
 		}
 	}
-	return fileOp.CopyDir(path.Join(nginxFolder, "www", "common", "waf", "rules"), path.Join(siteFolder, "waf"))
+
+	if website.Type == constant.Static || (website.Type == constant.Runtime && runtime.Type == constant.RuntimePHP) {
+		if err := createIndexFile(website, runtime); err != nil {
+			return err
+		}
+	}
+	if website.Type == constant.Proxy {
+		if err := createProxyFile(website); err != nil {
+			return err
+		}
+	}
+
+	// 复制waf规则
+
+	wafRulesSrc := path.Join(nginxFolder, "1pwaf", "data", "rules")
+	wafRulesDest := path.Join(siteFolder, "waf")
+	if err := fileOp.CopyDir(wafRulesSrc, wafRulesDest); err != nil {
+		return errors.Wrapf(err, "failed to copy waf rules from %s to %s", wafRulesSrc, wafRulesDest)
+	}
+
+	return nil
 }
 
 func configDefaultNginx(website *model.Website, domains []model.WebsiteDomain, appInstall *model.AppInstall, runtime *model.Runtime) error {
@@ -233,10 +268,11 @@ func configDefaultNginx(website *model.Website, domains []model.WebsiteDomain, a
 	server.UpdateServerName(serverNames)
 
 	siteFolder := path.Join("/www", "sites", website.Alias)
-	commonFolder := path.Join("/www", "common")
+	// commonFolder := path.Join("/www", "common")
+	commonFolder := "/usr/local/openresty/"
 	server.UpdateDirective("access_log", []string{path.Join(siteFolder, "log", "access.log")})
 	server.UpdateDirective("error_log", []string{path.Join(siteFolder, "log", "error.log")})
-	server.UpdateDirective("access_by_lua_file", []string{path.Join(commonFolder, "waf", "access.lua")})
+	server.UpdateDirective("access_by_lua_file", []string{path.Join(commonFolder, "1pwaf", "waf.lua")})
 	server.UpdateDirective("set", []string{"$RulePath", path.Join(siteFolder, "waf", "rules")})
 	server.UpdateDirective("set", []string{"$logdir", path.Join(siteFolder, "log")})
 
