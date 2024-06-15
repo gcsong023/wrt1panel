@@ -95,7 +95,7 @@ func ensureServiceDir() (string, error) {
 
 	if _, err := os.Stat(serviceDir); os.IsNotExist(err) {
 		serviceDir = initdDir
-		serviceTarget = path.Join(serviceDir, "1panel")
+		serviceTarget = path.Join(serviceDir, "1paneld")
 	}
 
 	return serviceTarget, nil

@@ -122,7 +122,7 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 	}
 	if req.IsNew || snap.InterruptStep == "1PanelService" {
 		if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel.service"), serviceTargetDir); err != nil {
-			if err := recoverPanel(path.Join(snapFileDir, "1panel/1panel.service/1panel"), serviceTargetDir); err != nil {
+			if err := recoverPanel(path.Join(snapFileDir, "1panel/1paneld"), serviceTargetDir); err != nil {
 				updateRecoverStatus(snap.ID, isRecover, "1PanelService", constant.StatusFailed, err.Error())
 				return
 			}
