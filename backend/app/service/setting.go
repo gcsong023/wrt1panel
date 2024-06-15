@@ -154,7 +154,7 @@ func (u *SettingService) UpdateBindInfo(req dto.BindInfo) error {
 	}
 	go func() {
 		time.Sleep(1 * time.Second)
-		_, err := cmd.Exec("service 1panel restart")
+		_, err := cmd.Exec("service 1paneld restart || systemctl restart 1panel.service")
 		if err != nil {
 			global.LOG.Errorf("restart system with new bind info failed, err: %v", err)
 		}
@@ -179,7 +179,7 @@ func (u *SettingService) UpdatePort(port uint) error {
 	}
 	go func() {
 		time.Sleep(1 * time.Second)
-		_, err := cmd.Exec("service 1panel restart")
+		_, err := cmd.Exec("service 1paneld restart || systemctl restart 1panel.service")
 		if err != nil {
 			global.LOG.Errorf("restart system port failed, err: %v", err)
 		}
@@ -202,7 +202,7 @@ func (u *SettingService) UpdateSSL(c *gin.Context, req dto.SSLUpdate) error {
 		c.SetCookie(constant.SessionName, sID, 0, "", "", false, true)
 
 		go func() {
-			_, err := cmd.Exec("service 1panel restart")
+			_, err := cmd.Exec("service 1paneld restart || systemctl restart 1panel.service")
 			if err != nil {
 				global.LOG.Errorf("restart system failed, err: %v", err)
 			}
@@ -297,7 +297,7 @@ func (u *SettingService) UpdateSSL(c *gin.Context, req dto.SSLUpdate) error {
 	c.SetCookie(constant.SessionName, sID, 0, "", "", true, true)
 	go func() {
 		time.Sleep(1 * time.Second)
-		_, err := cmd.Exec("service 1panel restart")
+		_, err := cmd.Exec("service 1paneld restart || systemctl restart 1panel.service")
 		if err != nil {
 			global.LOG.Errorf("restart system failed, err: %v", err)
 		}

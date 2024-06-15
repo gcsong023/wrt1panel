@@ -268,7 +268,7 @@ func (u *DeviceService) Clean(req []dto.Clean) {
 
 	if restart {
 		go func() {
-			_, err := cmd.Exec("service 1panel restart")
+			_, err := cmd.Exec("service 1paneld restart || systemctl restart 1panel.service")
 			if err != nil {
 				global.LOG.Errorf("restart system port failed, err: %v", err)
 			}

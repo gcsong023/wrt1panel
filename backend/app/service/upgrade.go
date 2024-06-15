@@ -192,7 +192,7 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 		_ = settingRepo.Update("SystemVersion", req.Version)
 		_ = settingRepo.Update("SystemStatus", "Free")
 		checkPointOfWal()
-		_, _ = cmd.ExecWithTimeOut("service 1panel enable && service 1panel restart", 1*time.Minute)
+		_, _ = cmd.ExecWithTimeOut("service 1paneld enable && service 1paneld restart || systemctl restart 1panel.service", 1*time.Minute)
 	}()
 	return nil
 }
