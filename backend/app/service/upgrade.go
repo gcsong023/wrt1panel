@@ -170,11 +170,15 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 		}
 
 		if _, err := os.Stat("/etc/init.d/1paneld"); err == nil {
-			if err := cpBinary([]string{tmpDir + "/1paneld"}, "/etc/init.d/1paneld"); err != nil {
-				global.LOG.Errorf("upgrade 1paneld failed, err: %v", err)
-				u.handleRollback(originalDir, 3)
-				return
+			if _, err := os.Stat(tmpDir + "/1paneld"); err == nil {
+				if err := cpBinary([]string{tmpDir + "/1paneld"}, "/etc/init.d/1paneld"); err != nil {
+					global.LOG.Errorf("upgrade 1paneld failed, err: %v", err)
+					u.handleRollback(originalDir, 3)
+					return
+				}
 			}
+			return
+			// }
 		} else if os.IsNotExist(err) {
 			// 如果不存在，则执行复制操作来升级 1panel.service
 			if err := cpBinary([]string{tmpDir + "/1panel.service"}, "/etc/systemd/system/1panel.service"); err != nil {
