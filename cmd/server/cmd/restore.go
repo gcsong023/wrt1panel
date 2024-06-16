@@ -102,13 +102,21 @@ func ensureServiceDir() (string, error) {
 }
 
 func restoreFiles(tmpPath, binDir, serviceTarget, baseDir string) error {
+	var serviceFileName = "1paneld"
+	// 检查1paneld是否存在，若不存在则尝试1panel.service
+	if _, err := os.Stat(path.Join(tmpPath, serviceFileName)); os.IsNotExist(err) {
+		serviceFileName = "1panel.service"
+		if _, err := os.Stat(path.Join(tmpPath, serviceFileName)); os.IsNotExist(err) {
+			return fmt.Errorf("服务文件 %s 或 %s 未找到", "1panel.service", "1paneld")
+		}
+	}
 	filesToRestore := []struct {
 		source string
 		dest   string
 	}{
 		{path.Join(tmpPath, "1panel"), binDir},
 		{path.Join(tmpPath, "1pctl"), binDir},
-		{path.Join(tmpPath, "1panel.service"), serviceTarget},
+		{path.Join(tmpPath, serviceFileName), serviceTarget},
 		{path.Join(tmpPath, "1Panel.db"), path.Join(baseDir, "1panel/db")},
 		{path.Join(tmpPath, "db.tar.gz"), path.Join(baseDir, "1panel")},
 	}

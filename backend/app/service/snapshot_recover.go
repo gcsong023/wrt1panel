@@ -85,17 +85,15 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 		// 检查 daemon.json 是否存在
 		daemonJsonPath := filepath.Join(snapFileDir, "daemon.json")
 		if _, err := os.Stat(daemonJsonPath); os.IsNotExist(err) {
-			global.LOG.Debug("daemon.json not found, skipping recovery and returning nil.")
-			return
-		}
+			global.LOG.Info("daemon.json not found, skipping recovery and returning nil.")
 
-		// 尝试恢复daemon.json
-		if err := recoverDaemonJson(snapFileDir, fileOp); err != nil {
+			// 尝试恢复daemon.json
+		} else if err := recoverDaemonJson(snapFileDir, fileOp); err != nil {
 			// 只有当daemon.json存在且恢复出错时，才更新恢复状态
 			updateRecoverStatus(snap.ID, isRecover, "DaemonJson", constant.StatusFailed, err.Error())
 			return
 		}
-		global.LOG.Debug("recover daemon.json from snapshot file successful!")
+		global.LOG.Info("recover daemon.json from snapshot file successful!")
 		req.IsNew = true
 	}
 
@@ -104,7 +102,7 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 			updateRecoverStatus(snap.ID, isRecover, "1PanelBinary", constant.StatusFailed, err.Error())
 			return
 		}
-		global.LOG.Debug("recover 1panel binary from snapshot file successful!")
+		global.LOG.Info("recover 1panel binary from snapshot file successful!")
 		req.IsNew = true
 	}
 	if req.IsNew || snap.InterruptStep == "1PctlBinary" {
@@ -112,12 +110,12 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 			updateRecoverStatus(snap.ID, isRecover, "1PctlBinary", constant.StatusFailed, err.Error())
 			return
 		}
-		global.LOG.Debug("recover 1pctl from snapshot file successful!")
+		global.LOG.Info("recover 1pctl from snapshot file successful!")
 		req.IsNew = true
 	}
 	var serviceTargetDir = "/etc/systemd/system"
 	if _, err := os.Stat(serviceTargetDir); os.IsNotExist(err) {
-		// global.LOG.Debug("/etc/systemd/system not found, switching to /etc/init.d/")
+		global.LOG.Info("/etc/systemd/system not found, switching to /etc/init.d/")
 		serviceTargetDir = "/etc/init.d/"
 	}
 	if req.IsNew || snap.InterruptStep == "1PanelService" {
@@ -162,7 +160,7 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 		global.LOG.Debugf("remove the file %s after the operation is successful", path.Dir(snapFileDir))
 		_ = os.RemoveAll(path.Dir(snapFileDir))
 	}
-	_, _ = cmd.Exec("systemctl daemon-reload && systemctl restart 1panel.service")
+	_, _ = cmd.Exec("systemctl daemon-reload && systemctl restart 1panel.service || service 1paneld reload && service 1paneld restart")
 }
 
 func backupBeforeRecover(snap model.Snapshot) error {

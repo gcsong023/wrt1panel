@@ -401,7 +401,7 @@ func (u *SnapshotService) handleUnTar(sourceDir, targetDir string) error {
 		}
 	}
 
-	commands := fmt.Sprintf("tar -zxf %s -C %s .", sourceDir, targetDir)
+	commands := fmt.Sprintf("tar -zxf %s -C %s ", sourceDir, targetDir)
 	global.LOG.Debug(commands)
 	stdout, err := cmd.ExecWithTimeOut(commands, 30*time.Minute)
 	if err != nil {
