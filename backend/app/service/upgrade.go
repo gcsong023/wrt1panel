@@ -163,12 +163,13 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 			u.handleRollback(originalDir, 2)
 			return
 		}
+		// global.LOG.Info("upgrade 1panel and 1pctl successful!")
 		if _, err := cmd.Execf("sed -i -e 's#BASE_DIR=.*#BASE_DIR=%s#g' /usr/local/bin/1pctl", global.CONF.System.BaseDir); err != nil {
 			global.LOG.Errorf("upgrade basedir in 1pctl failed, err: %v", err)
 			u.handleRollback(originalDir, 2)
 			return
 		}
-
+		// global.LOG.Info("upgrade basedir in 1pctl successful!")
 		if _, err := os.Stat("/etc/init.d/1paneld"); err == nil {
 			if _, err := os.Stat(tmpDir + "/1paneld"); err == nil {
 				if err := cpBinary([]string{tmpDir + "/1paneld"}, "/etc/init.d/1paneld"); err != nil {
@@ -177,8 +178,8 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 					return
 				}
 			}
-			return
-			// }
+			// global.LOG.Info("upgrade 1paneld successful!")
+
 		} else if os.IsNotExist(err) {
 			// 如果不存在，则执行复制操作来升级 1panel.service
 			if err := cpBinary([]string{tmpDir + "/1panel.service"}, "/etc/systemd/system/1panel.service"); err != nil {
@@ -192,7 +193,7 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 		_ = settingRepo.Update("SystemVersion", req.Version)
 		_ = settingRepo.Update("SystemStatus", "Free")
 		checkPointOfWal()
-		_, _ = cmd.ExecWithTimeOut("service 1paneld enable && service 1paneld restart || systemctl restart 1panel.service", 1*time.Minute)
+		_, _ = cmd.ExecWithTimeOut("service 1paneld enable && service 1paneld restart || systemctl daemon-reload && systemctl restart 1panel.service", 1*time.Minute)
 	}()
 	return nil
 }
