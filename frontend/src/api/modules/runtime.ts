@@ -2,6 +2,7 @@ import http from '@/api';
 import { ResPage, ReqPage } from '../interface';
 import { Runtime } from '../interface/runtime';
 import { TimeoutEnum } from '@/enums/http-enum';
+import { App } from '@/api/interface/app';
 
 export const SearchRuntimes = (req: Runtime.RuntimeReq) => {
     return http.post<ResPage<Runtime.RuntimeDTO>>(`/runtimes/search`, req);
@@ -13,6 +14,10 @@ export const CreateRuntime = (req: Runtime.RuntimeCreate) => {
 
 export const DeleteRuntime = (req: Runtime.RuntimeDelete) => {
     return http.post<any>(`/runtimes/del`, req);
+};
+
+export const RuntimeDeleteCheck = (runTimeId: number) => {
+    return http.get<App.AppInstallResource[]>(`runtimes/installed/delete/check/${runTimeId}`);
 };
 
 export const GetRuntime = (id: number) => {
@@ -57,4 +62,8 @@ export const UpdatePHPExtensions = (req: Runtime.PHPExtensionsUpdate) => {
 
 export const DeletePHPExtensions = (req: Runtime.PHPExtensionsDelete) => {
     return http.post<any>(`/runtimes/php/extensions/del`, req);
+};
+
+export const SyncRuntime = () => {
+    return http.post(`/runtimes/sync`, {});
 };
