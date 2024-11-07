@@ -655,6 +655,9 @@ const message = {
         tag: '标签',
         tagHelper: '一行一个，例： \nkey1=value1\nkey2=value2',
         imageNameHelper: '镜像名称及 Tag，例：nginx:latest',
+        cleanBuildCache: '清理构建缓存',
+        delBuildCacheHelper: '清理构建缓存 将删除所有构建产生的缓存，该操作无法回滚，是否继续？',
+        urlWarning: '路径前缀不需要添加 http:// 或 https://, 请修改',
 
         network: '网络',
         createNetwork: '创建网络',

@@ -17,6 +17,10 @@
                 <el-button @click="openExtensions">
                     {{ $t('php.extensions') }}
                 </el-button>
+
+                <el-button type="primary" plain @click="onOpenBuildCache()">
+                    {{ $t('container.cleanBuildCache') }}
+                </el-button>
             </template>
             <template #main>
                 <ComplexTable :pagination-config="paginationConfig" :data="items" @search="search()">
@@ -176,6 +180,29 @@ const openDelete = async (row: Runtime.Runtime) => {
         ]),
         api: DeleteRuntime,
         params: { id: row.id, forceDelete: true },
+    });
+};
+
+const onOpenBuildCache = () => {
+    ElMessageBox.confirm(i18n.global.t('container.delBuildCacheHelper'), i18n.global.t('container.cleanBuildCache'), {
+        confirmButtonText: i18n.global.t('commons.button.confirm'),
+        cancelButtonText: i18n.global.t('commons.button.cancel'),
+        type: 'info',
+    }).then(async () => {
+        loading.value = true;
+        let params = {
+            pruneType: 'buildcache',
+            withTagAll: false,
+        };
+        await containerPrune(params)
+            .then((res) => {
+                loading.value = false;
+                MsgSuccess(i18n.global.t('container.cleanSuccess', [res.data.deletedNumber]));
+                search();
+            })
+            .catch(() => {
+                loading.value = false;
+            });
     });
 };
 

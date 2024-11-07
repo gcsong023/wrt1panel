@@ -6,8 +6,8 @@ type PageContainer struct {
 	PageInfo
 	Name            string `json:"name"`
 	State           string `json:"state" validate:"required,oneof=all created running paused restarting removing exited dead"`
-	OrderBy         string `json:"orderBy"`
-	Order           string `json:"order"`
+	OrderBy         string `json:"orderBy" validate:"required,oneof=name state created_at"`
+	Order           string `json:"order" validate:"required,oneof=null ascending descending"`
 	Filters         string `json:"filters"`
 	ExcludeAppStore bool   `json:"excludeAppStore"`
 }
@@ -98,6 +98,7 @@ type ContainerStats struct {
 }
 
 type VolumeHelper struct {
+	Type         string `json:"type"`
 	SourceDir    string `json:"sourceDir"`
 	ContainerDir string `json:"containerDir"`
 	Mode         string `json:"mode"`
@@ -119,8 +120,16 @@ type ContainerRename struct {
 	NewName string `json:"newName" validate:"required"`
 }
 
+type ContainerCommit struct {
+	ContainerId   string `json:"containerID" validate:"required"`
+	ContainerName string `json:"containerName"`
+	NewImageName  string `json:"newImageName"`
+	Comment       string `json:"comment"`
+	Author        string `json:"author"`
+	Pause         bool   `json:"pause"`
+}
 type ContainerPrune struct {
-	PruneType  string `json:"pruneType" validate:"required,oneof=container image volume network"`
+	PruneType  string `json:"pruneType" validate:"required,oneof=container image volume network buildcache"`
 	WithTagAll bool   `json:"withTagAll"`
 }
 
@@ -210,4 +219,10 @@ type ComposeUpdate struct {
 	Name    string `json:"name" validate:"required"`
 	Path    string `json:"path" validate:"required"`
 	Content string `json:"content" validate:"required"`
+}
+type ContainerLog struct {
+	Container     string `json:"container" validate:"required"`
+	Since         string `json:"since"`
+	Tail          uint   `json:"tail"`
+	ContainerType string `json:"containerType"`
 }
