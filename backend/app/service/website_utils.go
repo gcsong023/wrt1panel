@@ -300,7 +300,7 @@ func configDefaultNginx(website *model.Website, domains []model.WebsiteDomain, a
 				server.UpdateRoot(rootIndex)
 				server.UpdatePHPProxy([]string{website.Proxy}, "")
 			}
-		case constant.RuntimeNode:
+		case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 			proxy := fmt.Sprintf("http://127.0.0.1:%d", runtime.Port)
 			server.UpdateRootProxy([]string{proxy})
 		}

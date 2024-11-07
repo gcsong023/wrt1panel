@@ -3,6 +3,15 @@ package service
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/1Panel-dev/1Panel/backend/app/dto/request"
 	"github.com/1Panel-dev/1Panel/backend/app/model"
 	"github.com/1Panel-dev/1Panel/backend/buserr"
@@ -13,14 +22,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/subosito/gotenv"
 	"gopkg.in/yaml.v3"
-	"io"
-	"net/http"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 func handleNode(create request.RuntimeCreate, runtime *model.Runtime, fileOp files.FileOp, appVersionDir string) (err error) {
@@ -323,7 +324,31 @@ func handleParams(create request.RuntimeCreate, projectDir string) (composeConte
 		}
 		create.Params["CONTAINER_PACKAGE_URL"] = create.Source
 
-		composeContent, err = handleNodeCompose(env, composeContent, create, projectDir)
+		composeContent, err = handleCompose(env, composeContent, create, projectDir)
+		if err != nil {
+			return
+		}
+	case constant.RuntimeJava:
+		create.Params["CODE_DIR"] = create.CodeDir
+		create.Params["JAVA_VERSION"] = create.Version
+		create.Params["PANEL_APP_PORT_HTTP"] = create.Port
+		composeContent, err = handleCompose(env, composeContent, create, projectDir)
+		if err != nil {
+			return
+		}
+	case constant.RuntimeGo:
+		create.Params["CODE_DIR"] = create.CodeDir
+		create.Params["GO_VERSION"] = create.Version
+		create.Params["PANEL_APP_PORT_HTTP"] = create.Port
+		composeContent, err = handleCompose(env, composeContent, create, projectDir)
+		if err != nil {
+			return
+		}
+	case constant.RuntimePython:
+		create.Params["CODE_DIR"] = create.CodeDir
+		create.Params["PYTHON_VERSION"] = create.Version
+		create.Params["PANEL_APP_PORT_HTTP"] = create.Port
+		composeContent, err = handleCompose(env, composeContent, create, projectDir)
 		if err != nil {
 			return
 		}
@@ -346,7 +371,7 @@ func handleParams(create request.RuntimeCreate, projectDir string) (composeConte
 	return
 }
 
-func handleNodeCompose(env gotenv.Env, composeContent []byte, create request.RuntimeCreate, projectDir string) (composeByte []byte, err error) {
+func handleCompose(env gotenv.Env, composeContent []byte, create request.RuntimeCreate, projectDir string) (composeByte []byte, err error) {
 	existMap := make(map[string]interface{})
 	composeMap := make(map[string]interface{})
 	if err = yaml.Unmarshal(composeContent, &composeMap); err != nil {
@@ -365,7 +390,17 @@ func handleNodeCompose(env gotenv.Env, composeContent []byte, create request.Run
 		_, ok := serviceValue["ports"].([]interface{})
 		if ok {
 			var ports []interface{}
-			ports = append(ports, "${HOST_IP}:${PANEL_APP_PORT_HTTP}:${NODE_APP_PORT}")
+			switch create.Type {
+			case constant.RuntimeNode:
+				ports = append(ports, "${HOST_IP}:${PANEL_APP_PORT_HTTP}:${NODE_APP_PORT}")
+			case constant.RuntimeJava:
+				ports = append(ports, "${HOST_IP}:${PANEL_APP_PORT_HTTP}:${JAVA_APP_PORT}")
+			case constant.RuntimeGo:
+				ports = append(ports, "${HOST_IP}:${PANEL_APP_PORT_HTTP}:${GO_APP_PORT}")
+			case constant.RuntimePython:
+				ports = append(ports, "${HOST_IP}:${PANEL_APP_PORT_HTTP}:${APP_PORT}")
+
+			}
 			for i, port := range create.ExposedPorts {
 				containerPortStr := fmt.Sprintf("CONTAINER_PORT_%d", i)
 				hostPortStr := fmt.Sprintf("HOST_PORT_%d", i)

@@ -4,6 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/1Panel-dev/1Panel/backend/app/dto"
 	"github.com/1Panel-dev/1Panel/backend/app/dto/request"
 	"github.com/1Panel-dev/1Panel/backend/app/dto/response"
@@ -19,13 +27,6 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/utils/files"
 	"github.com/pkg/errors"
 	"github.com/subosito/gotenv"
-	"os"
-	"path"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type RuntimeService struct {
@@ -80,7 +81,7 @@ func (r *RuntimeService) Create(create request.RuntimeCreate) (*model.Runtime, e
 		if exist != nil {
 			return nil, buserr.New(constant.ErrImageExist)
 		}
-	case constant.RuntimeNode:
+	case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 		if !fileOp.Stat(create.CodeDir) {
 			return nil, buserr.New(constant.ErrPathNotFound)
 		}
@@ -130,7 +131,7 @@ func (r *RuntimeService) Create(create request.RuntimeCreate) (*model.Runtime, e
 		if err = handlePHP(create, runtime, fileOp, appVersionDir); err != nil {
 			return nil, err
 		}
-	case constant.RuntimeNode:
+	case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 		runtime.Port = create.Port
 		if err = handleNode(create, runtime, fileOp, appVersionDir); err != nil {
 			return nil, err
@@ -201,7 +202,7 @@ func (r *RuntimeService) Delete(runtimeDelete request.RuntimeDelete) error {
 					global.LOG.Errorf("delete image id [%s] error %v", imageID, err)
 				}
 			}
-		case constant.RuntimeNode:
+		case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 			if out, err := compose.Down(runtime.GetComposePath()); err != nil && !runtimeDelete.ForceDelete {
 				if out != "" {
 					return errors.New(out)
@@ -284,7 +285,7 @@ func (r *RuntimeService) Get(id uint) (*response.RuntimeDTO, error) {
 			}
 		}
 		res.AppParams = appParams
-	case constant.RuntimeNode:
+	case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 		res.Params = make(map[string]interface{})
 		envs, err := gotenv.Unmarshal(runtime.Env)
 		if err != nil {
@@ -345,7 +346,7 @@ func (r *RuntimeService) Update(req request.RuntimeUpdate) error {
 		if exist != nil {
 			return buserr.New(constant.ErrImageExist)
 		}
-	case constant.RuntimeNode:
+	case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 		if runtime.Port != req.Port {
 			if err = checkPortExist(req.Port); err != nil {
 				return err
@@ -424,7 +425,7 @@ func (r *RuntimeService) Update(req request.RuntimeUpdate) error {
 			return err
 		}
 		go buildRuntime(runtime, imageID, req.Rebuild)
-	case constant.RuntimeNode:
+	case constant.RuntimeNode, constant.RuntimeJava, constant.RuntimeGo, constant.RuntimePython:
 		runtime.Version = req.Version
 		runtime.CodeDir = req.CodeDir
 		runtime.Port = req.Port

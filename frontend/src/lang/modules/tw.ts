@@ -1934,6 +1934,12 @@ const message = {
         customScriptHelper: '請填寫完整的啟動指令，例如：npm run start',
         portError: '不能填寫相同連接埠',
         systemRestartHelper: '狀態說明：中斷-系統重新啟動導致狀態取得失敗',
+        javaScriptHelper: '請填寫完整啟動指令，例如：java -jar halo.jar -Xmx1024M -Xms256M',
+        javaDirHelper: '目錄中要包含 jar 包，子目錄中包含也可',
+        goHelper: '請填寫完整啟動命令，例如：go run main.go 或 ./main',
+        goDirHelper: '目錄中要包含 go 文件或者二進制文件，子目錄中包含也可',
+        pythonHelper:
+            '請填入完整啟動指令，例如：pip install -r requirements.txt && python manage.py runserver 0.0.0.0:5000',
     },
     process: {
         pid: '進程ID',

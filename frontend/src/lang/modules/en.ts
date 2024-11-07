@@ -2074,6 +2074,13 @@ const message = {
         customScriptHelper: 'Please fill in the complete startup command, for example: npm run start',
         portError: 'Cannot fill in the same port',
         systemRestartHelper: 'Status description: Interruption - status acquisition failed due to system restart',
+        javaScriptHelper:
+            'Please fill in the complete startup command, for example: java -jar halo.jar -Xmx1024M -Xms256M',
+        javaDirHelper: 'The directory must contain jar files, subdirectories are also acceptable',
+        goHelper: 'Please provide a complete start command, for example: go run main.go or ./main',
+        goDirHelper: 'The directory must contain go files or binary files, subdirectories are also acceptable',
+        pythonHelper:
+            'Please fill in the complete startup command, for example: pip install -r requirements.txt && python manage.py runserver 0.0.0.0:5000',
     },
     process: {
         pid: 'Process ID',

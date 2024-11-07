@@ -1934,6 +1934,12 @@ const message = {
         customScriptHelper: '请填写完整的启动命令，例如：npm run start',
         portError: '不能填写相同端口',
         systemRestartHelper: '状态说明：中断-系统重启导致状态获取失败',
+        javaScriptHelper: '请填写完整启动命令，例如：java -jar halo.jar -Xmx1024M -Xms256M',
+        javaDirHelper: '目录中要包含 jar 包，子目录中包含也可',
+        goHelper: '请填写完整启动命令，例如：go run main.go 或 ./main',
+        goDirHelper: '目录中要包含 go 文件或者二进制文件，子目录中包含也可',
+        pythonHelper:
+            '请填写完整启动命令，例如：pip install -r requirements.txt && python manage.py runserver 0.0.0.0:5000',
     },
     process: {
         pid: '进程ID',

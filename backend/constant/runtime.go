@@ -14,8 +14,11 @@ const (
 	RuntimeUnhealthy  = "unhealthy"
 	RuntimeCreating   = "creating"
 
-	RuntimePHP  = "php"
-	RuntimeNode = "node"
+	RuntimePHP    = "php"
+	RuntimeNode   = "node"
+	RuntimeGo     = "go"
+	RuntimeJava   = "java"
+	RuntimePython = "python"
 
 	RuntimeProxyUnix = "unix"
 	RuntimeProxyTcp  = "tcp"

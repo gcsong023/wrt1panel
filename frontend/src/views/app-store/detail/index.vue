@@ -137,10 +137,11 @@ const toLink = (link: string) => {
 const openInstall = () => {
     switch (app.value.type) {
         case 'php':
-            router.push({ path: '/websites/runtimes/php' });
-            break;
+        case 'java':
+        case 'go':
+        case 'python':
         case 'node':
-            router.push({ path: '/websites/runtimes/node' });
+            router.push({ path: '/websites/runtimes/' + app.value.type });
             break;
         default:
             const params = {
