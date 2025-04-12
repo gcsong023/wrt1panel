@@ -15,6 +15,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/utils/common"
 	"github.com/1Panel-dev/1Panel/backend/utils/firewall"
 	fireClient "github.com/1Panel-dev/1Panel/backend/utils/firewall/client"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 )
@@ -188,19 +189,19 @@ func (u *FirewallService) OperateFirewall(operation string) error {
 			_ = client.Stop()
 			return err
 		}
-		_, _ = cmd.Exec("systemctl restart docker")
+		_ = systemctl.Restart("docker")
 		return nil
 	case "stop":
 		if err := client.Stop(); err != nil {
 			return err
 		}
-		_, _ = cmd.Exec("systemctl restart docker")
+		_ = systemctl.Restart("docker")
 		return nil
 	case "restart":
 		if err := client.Restart(); err != nil {
 			return err
 		}
-		_, _ = cmd.Exec("systemctl restart docker")
+		_ = systemctl.Restart("docker")
 		return nil
 	case "disablePing":
 		return u.updatePingStatus("0")

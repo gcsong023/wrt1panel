@@ -15,6 +15,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/global"
 	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
 	"github.com/1Panel-dev/1Panel/backend/utils/common"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 )
@@ -87,9 +88,9 @@ func (u *ImageRepoService) Create(req dto.ImageRepoCreate) error {
 	}
 	if req.Protocol == "http" {
 		_ = u.handleRegistries(req.DownloadUrl, "", "create")
-		stdout, err := cmd.Exec("systemctl restart docker")
+		stdout, err := systemctl.CustomAction("restart", "docker")
 		if err != nil {
-			return errors.New(string(stdout))
+			return errors.New(string(stdout.Output))
 		}
 		ticker := time.NewTicker(3 * time.Second)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
@@ -100,8 +101,8 @@ func (u *ImageRepoService) Create(req dto.ImageRepoCreate) error {
 					cancel()
 					return errors.New("the docker service cannot be restarted")
 				default:
-					stdout, err := cmd.Exec("systemctl is-active docker")
-					if string(stdout) == "active\n" && err == nil {
+					stdout, err := systemctl.IsActive("docker")
+					if stdout && err == nil {
 						global.LOG.Info("docker restart with new conf successful!")
 						return nil
 					}
@@ -159,9 +160,9 @@ func (u *ImageRepoService) Update(req dto.ImageRepoUpdate) error {
 		if repo.Auth {
 			_, _ = cmd.ExecWithCheck("docker", "logout", repo.DownloadUrl)
 		}
-		stdout, err := cmd.Exec("systemctl restart docker")
+		err := systemctl.Restart("docker")
 		if err != nil {
-			return errors.New(string(stdout))
+			return err
 		}
 	}
 

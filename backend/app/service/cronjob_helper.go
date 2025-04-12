@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -127,30 +126,30 @@ func (u *CronjobService) handleNtpSync() error {
 	return nil
 }
 
-func buildExcludesString(exclusionRules string, exMap map[string]struct{}) string {
-	excludes := strings.Split(exclusionRules, ",")
-	excludes = append(excludes, "*.sock")
-	var exStr strings.Builder
-	for _, exclude := range excludes {
-		if len(exclude) == 0 {
-			continue
-		}
-		if _, ok := exMap[exclude]; !ok {
-			exStr.WriteString(" --exclude ")
-			exStr.WriteString(exclude)
-			exMap[exclude] = struct{}{}
-		}
-	}
-	return exStr.String()
-}
+// func buildExcludesString(exclusionRules string, exMap map[string]struct{}) string {
+// 	excludes := strings.Split(exclusionRules, ",")
+// 	excludes = append(excludes, "*.sock")
+// 	var exStr strings.Builder
+// 	for _, exclude := range excludes {
+// 		if len(exclude) == 0 {
+// 			continue
+// 		}
+// 		if _, ok := exMap[exclude]; !ok {
+// 			exStr.WriteString(" --exclude ")
+// 			exStr.WriteString(exclude)
+// 			exMap[exclude] = struct{}{}
+// 		}
+// 	}
+// 	return exStr.String()
+// }
 
-func buildPath(dir string) string {
-	if filepath.IsAbs(dir) {
-		return dir
-	} else {
-		return fmt.Sprintf("-C %s .", dir)
-	}
-}
+//	func buildPath(dir string) string {
+//		if filepath.IsAbs(dir) {
+//			return dir
+//		} else {
+//			return fmt.Sprintf("-C %s .", dir)
+//		}
+//	}
 func ensureDirectory(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0755); err != nil {

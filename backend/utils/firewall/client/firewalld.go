@@ -8,6 +8,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/buserr"
 	"github.com/1Panel-dev/1Panel/backend/constant"
 	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 )
 
 type Firewall struct{}
@@ -37,25 +38,25 @@ func (f *Firewall) Version() (string, error) {
 }
 
 func (f *Firewall) Start() error {
-	stdout, err := cmd.Exec("systemctl start firewalld")
+	err := systemctl.Start("firewalld")
 	if err != nil {
-		return fmt.Errorf("enable the firewall failed, err: %s", stdout)
+		return fmt.Errorf("enable the firewall failed, err: %s", err)
 	}
 	return nil
 }
 
 func (f *Firewall) Stop() error {
-	stdout, err := cmd.Exec("systemctl stop firewalld")
+	err := systemctl.Stop("firewalld")
 	if err != nil {
-		return fmt.Errorf("stop the firewall failed, err: %s", stdout)
+		return fmt.Errorf("stop the firewall failed, err: %s", err)
 	}
 	return nil
 }
 
 func (f *Firewall) Restart() error {
-	stdout, err := cmd.Exec("systemctl restart firewalld")
+	err := systemctl.Restart("firewalld")
 	if err != nil {
-		return fmt.Errorf("restart the firewall failed, err: %s", stdout)
+		return fmt.Errorf("restart the firewall failed, err: %s", err)
 	}
 	return nil
 }

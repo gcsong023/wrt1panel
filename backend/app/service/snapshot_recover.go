@@ -16,6 +16,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
 	"github.com/1Panel-dev/1Panel/backend/utils/common"
 	"github.com/1Panel-dev/1Panel/backend/utils/files"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 	"github.com/pkg/errors"
 )
 
@@ -160,7 +161,14 @@ func (u *SnapshotService) HandleSnapshotRecover(snap model.Snapshot, isRecover b
 		global.LOG.Debugf("remove the file %s after the operation is successful", path.Dir(snapFileDir))
 		_ = os.RemoveAll(path.Dir(snapFileDir))
 	}
-	_, _ = cmd.Exec("systemctl daemon-reload && systemctl restart 1panel.service || service 1paneld reload && service 1paneld restart")
+	mgr := systemctl.GetGlobalManager()
+	if mgr.Name() == "systemd" {
+		_, _ = cmd.Exec("systemctl daemon-reload")
+	}
+	if err := systemctl.Restart("1panel"); err != nil {
+		global.LOG.Errorf("restart 1panel service failed: %v", err)
+		return
+	}
 }
 
 func backupBeforeRecover(snap model.Snapshot) error {

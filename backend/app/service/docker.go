@@ -13,6 +13,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/constant"
 	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
 	"github.com/1Panel-dev/1Panel/backend/utils/docker"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 	"github.com/pkg/errors"
 )
 
@@ -211,9 +212,9 @@ func (u *DockerService) UpdateConf(req dto.SettingUpdate) error {
 		return err
 	}
 
-	stdout, err := cmd.Exec("systemctl restart docker")
+	err = systemctl.Restart("docker")
 	if err != nil {
-		return errors.New(string(stdout))
+		return err
 	}
 	return nil
 }
@@ -246,9 +247,9 @@ func (u *DockerService) UpdateLogOption(req dto.LogOption) error {
 		return err
 	}
 
-	stdout, err := cmd.Exec("systemctl restart docker")
+	err = systemctl.Restart("docker")
 	if err != nil {
-		return errors.New(string(stdout))
+		return err
 	}
 	return nil
 }
@@ -288,9 +289,9 @@ func (u *DockerService) UpdateIpv6Option(req dto.Ipv6Option) error {
 		return err
 	}
 
-	stdout, err := cmd.Exec("systemctl restart docker")
+	err = systemctl.Restart("docker")
 	if err != nil {
-		return errors.New(string(stdout))
+		return err
 	}
 	return nil
 }
@@ -315,9 +316,9 @@ func (u *DockerService) UpdateConfByFile(req dto.DaemonJsonUpdateByFile) error {
 	_, _ = write.WriteString(req.File)
 	write.Flush()
 
-	stdout, err := cmd.Exec("systemctl restart docker")
+	err = systemctl.Restart("docker")
 	if err != nil {
-		return errors.New(string(stdout))
+		return err
 	}
 	return nil
 }
@@ -327,9 +328,9 @@ func (u *DockerService) OperateDocker(req dto.DockerOperation) error {
 	if req.Operation == "stop" {
 		service = "docker.socket"
 	}
-	stdout, err := cmd.Execf("systemctl %s %s ", req.Operation, service)
+	stdout, err := systemctl.CustomAction(req.Operation, service)
 	if err != nil {
-		return errors.New(string(stdout))
+		return errors.New(string(stdout.Output))
 	}
 	return nil
 }

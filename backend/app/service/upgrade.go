@@ -19,6 +19,7 @@ import (
 	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
 	"github.com/1Panel-dev/1Panel/backend/utils/common"
 	"github.com/1Panel-dev/1Panel/backend/utils/files"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 )
 
 type UpgradeService struct{}
@@ -193,7 +194,11 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 		_ = settingRepo.Update("SystemVersion", req.Version)
 		_ = settingRepo.Update("SystemStatus", "Free")
 		checkPointOfWal()
-		_, _ = cmd.ExecWithTimeOut("service 1paneld enable && service 1paneld restart || systemctl daemon-reload && systemctl restart 1panel.service", 1*time.Minute)
+		err = systemctl.Restart("1panel")
+		if err != nil {
+			_, _ = cmd.ExecWithTimeOut("service 1paneld enable && service 1paneld restart || systemctl daemon-reload && systemctl restart 1panel.service", 1*time.Minute)
+		}
+
 	}()
 	return nil
 }

@@ -10,9 +10,9 @@ import (
 
 	"github.com/1Panel-dev/1Panel/backend/app/dto"
 	"github.com/1Panel-dev/1Panel/backend/global"
-	"github.com/1Panel-dev/1Panel/backend/utils/cmd"
 	"github.com/1Panel-dev/1Panel/backend/utils/common"
 	fileUtils "github.com/1Panel-dev/1Panel/backend/utils/files"
+	"github.com/1Panel-dev/1Panel/backend/utils/systemctl"
 	"github.com/google/uuid"
 )
 
@@ -268,7 +268,7 @@ func (u *DeviceService) Clean(req []dto.Clean) {
 
 	if restart {
 		go func() {
-			_, err := cmd.Exec("service 1paneld restart || systemctl restart 1panel.service")
+			err := systemctl.Restart("1panel")
 			if err != nil {
 				global.LOG.Errorf("restart system port failed, err: %v", err)
 			}

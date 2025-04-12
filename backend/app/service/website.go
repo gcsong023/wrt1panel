@@ -1155,7 +1155,6 @@ func (w WebsiteService) UpdatePHPConfig(req request.WebsitePHPConfigUpdate) (err
 			pattern := "^" + regexp.QuoteMeta("disable_functions") + "\\s*=\\s*.*$"
 			if matched, _ := regexp.MatchString(pattern, line); matched {
 				lines[i] = "disable_functions" + " = " + strings.Join(req.DisableFunctions, ",")
-				break
 			}
 		case "upload_max_filesize":
 			pattern := "^" + regexp.QuoteMeta("post_max_size") + "\\s*=\\s*.*$"

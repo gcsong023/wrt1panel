@@ -3,6 +3,7 @@ package toolbox
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/1Panel-dev/1Panel/backend/global"
@@ -28,9 +29,9 @@ func NewFail2Ban() (*Fail2ban, error) {
 			if err := initLocalFile(); err != nil {
 				return nil, err
 			}
-			stdout, err := cmd.Exec("systemctl restart fail2ban.service")
+			err := systemctl.Restart("fail2ban")
 			if err != nil {
-				global.LOG.Errorf("restart fail2ban failed, err: %s", stdout)
+				global.LOG.Errorf("restart fail2ban failed, err: %s", err)
 				return nil, err
 			}
 		}
@@ -47,12 +48,18 @@ func (f *Fail2ban) Status() (bool, bool, bool) {
 }
 
 func (f *Fail2ban) Version() string {
-	stdout, err := cmd.Exec("fail2ban-client version")
+	stdout, err := cmd.Exec("fail2ban-client --version")
 	if err != nil {
 		global.LOG.Errorf("load the fail2ban version failed, err: %s", stdout)
 		return "-"
 	}
-	return strings.ReplaceAll(stdout, "\n", "")
+	versionRe := regexp.MustCompile(`(?i)fail2ban[:\s-]*v?(\d+\.\d+\.\d+)`)
+	matches := versionRe.FindStringSubmatch(stdout)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	global.LOG.Errorf("Version regex failed to match output: %s", stdout)
+	return "-"
 }
 
 func (f *Fail2ban) Operate(operate string) error {
