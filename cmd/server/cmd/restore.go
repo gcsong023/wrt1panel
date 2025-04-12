@@ -6,11 +6,9 @@ import (
 	"path"
 	"sort"
 	"strings"
-	"time"
 
 	cmdUtils "github.com/1Panel-dev/1Panel/backend/utils/cmd"
 	"github.com/1Panel-dev/1Panel/backend/utils/common"
-	"github.com/pkg/errors"
 
 	"github.com/spf13/cobra"
 )
@@ -161,17 +159,17 @@ func loadRestorePath(upgradeDir string) (string, error) {
 	return folders[0], nil
 }
 
-func handleUnTar(sourceFile, targetDir string) error {
-	if _, err := os.Stat(targetDir); err != nil && os.IsNotExist(err) {
-		if err = os.MkdirAll(targetDir, os.ModePerm); err != nil {
-			return err
-		}
-	}
+// func handleUnTar(sourceFile, targetDir string) error {
+// 	if _, err := os.Stat(targetDir); err != nil && os.IsNotExist(err) {
+// 		if err = os.MkdirAll(targetDir, os.ModePerm); err != nil {
+// 			return err
+// 		}
+// 	}
 
-	commands := fmt.Sprintf("tar zxvf %s -C %s", sourceFile, targetDir)
-	stdout, err := cmdUtils.ExecWithTimeOut(commands, 20*time.Second)
-	if err != nil {
-		return errors.New(stdout)
-	}
-	return nil
-}
+// 	commands := fmt.Sprintf("tar zxvf %s -C %s", sourceFile, targetDir)
+// 	stdout, err := cmdUtils.ExecWithTimeOut(commands, 20*time.Second)
+// 	if err != nil {
+// 		return errors.New(stdout)
+// 	}
+// 	return nil
+// }
